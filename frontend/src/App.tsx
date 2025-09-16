@@ -20,7 +20,7 @@ interface Place {
 }
 
 export default function App() {
-  const [tripRequest, setTripRequest] = useState('Plan a 2-day art and food tour in Bangalore');
+  const [tripRequest, setTripRequest] = useState('Plan a 1-day art and food tour in Bangalore');
   const [extracted, setExtracted] = useState<{ city: string; interests: string; days: number } | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [status, setStatus] = useState('');
@@ -30,6 +30,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'bot', message: string, timestamp: Date}>>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatListening, setIsChatListening] = useState(false);
+  const [hasGeneratedItinerary, setHasGeneratedItinerary] = useState(false);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -153,6 +154,7 @@ export default function App() {
       });
       const data = await resp.json();
       setPlaces(data.places || []);
+      setHasGeneratedItinerary(true);
       setStatus('');
     } catch (error) {
       setStatus('Error generating itinerary');
@@ -209,11 +211,23 @@ export default function App() {
       });
       const data = await resp.json();
       
-      setPlaces(data.places || places);
+      // Handle different response types appropriately
+      if (data.type === 'modification') {
+        // For modifications, always update places (even if empty - user might have removed all)
+        setPlaces(data.places || []);
+      } else if (data.type === 'answer') {
+        // For questions, preserve existing places since we're just answering
+        // Don't update places for question-type responses
+      } else {
+        // Fallback: only update if we have valid places data
+        if (data.places && Array.isArray(data.places) && data.places.length > 0) {
+          setPlaces(data.places);
+        }
+      }
       
       const botMessage = { 
         type: 'bot' as const, 
-        message: `I've updated your itinerary based on your request: "${currentInput}". ${data.places?.length || places.length} places are now in your itinerary.`, 
+        message: data.response || "I've processed your request.", 
         timestamp: new Date() 
       };
       setChatMessages(prev => [...prev, botMessage]);
@@ -296,27 +310,26 @@ export default function App() {
                 placeholder="Describe your dream trip... e.g., 'Plan a 3-day art and food tour in Paris'"
               />
 
-              {status && (
-                <div className="mt-3 p-3 bg-emerald-500/20 border border-emerald-500/30 rounded-lg">
-                  <p className="text-sm text-emerald-200">{status}</p>
-                </div>
-              )}
             </div>
 
             {/* Action Buttons */}
             <div className="flex gap-3">
               <button 
                 onClick={doExtract}
-                className="flex-1 py-3 px-4 bg-gradient-to-r from-slate-600 to-gray-600 hover:from-slate-700 hover:to-gray-700 rounded-xl font-medium transition-all duration-200 transform hover:scale-105"
+                className={`py-3 px-4 bg-gradient-to-r from-slate-600 to-gray-600 hover:from-slate-700 hover:to-gray-700 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 ${
+                  extracted ? 'flex-1' : 'w-full'
+                }`}
               >
                 🔍 Get Details
               </button>
-              <button 
-                onClick={doItinerary}
-                className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl font-medium transition-all duration-200 transform hover:scale-105"
-              >
-                🗺️ Generate Itinerary
-              </button>
+              {extracted && (
+                <button 
+                  onClick={doItinerary}
+                  className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl font-medium transition-all duration-200 transform hover:scale-105"
+                >
+                  🗺️ Generate Itinerary
+                </button>
+              )}
             </div>
 
             {/* Extracted Details - Collapsible */}
@@ -369,9 +382,18 @@ export default function App() {
               </div>
             )}
 
+            {/* Itinerary Generation Status */}
+            {status && (status.includes('Generating') || status.includes('Extracting')) && (
+              <div className="bg-blue-500/10 rounded-2xl p-4 border border-blue-500/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-sm text-blue-200">{status}</p>
+                </div>
+              </div>
+            )}
 
             {/* AI Itinerary Assistant Chatbot */}
-            {places.length > 0 && (
+            {hasGeneratedItinerary && (
               <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                   <span className="w-8 h-8 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center text-sm">🤖</span>
@@ -404,6 +426,18 @@ export default function App() {
                           </div>
                         </div>
                       ))}
+                      
+                      {/* Show processing indicator in chat */}
+                      {status && status.includes('Processing') && (
+                        <div className="flex justify-start">
+                          <div className="max-w-[80%] p-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white mr-8">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              <p className="text-sm">{status}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -472,7 +506,7 @@ export default function App() {
               </div>
 
               {/* Right Sidebar - Itinerary */}
-              {(places.length > 0 || true) && (
+              {(hasGeneratedItinerary || places.length > 0) && (
                 <div className="w-[520px] bg-black/30 backdrop-blur-xl border-l border-white/10 overflow-y-auto">
                   <div className="p-6">
                     <div className="bg-white/5 rounded-2xl p-6 border border-white/10">

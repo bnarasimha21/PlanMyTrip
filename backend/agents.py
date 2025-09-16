@@ -16,7 +16,7 @@ research_agent = Agent(
     role="Travel Researcher",
     goal="Find must see places in the city based on user interests",
     backstory="Expert in travel and local recommendations.",
-    llm="gpt-4o-mini"
+    llm="gpt-4"
 )
 
 itinerary_agent = Agent(
@@ -24,16 +24,25 @@ itinerary_agent = Agent(
     role="Itinerary Planner",
     goal="Create a itinerary based on user interests and research",
     backstory="Specialist in optimizing travel plans based on user interests and research.",
-    llm="gpt-4o-mini"
+    llm="gpt-4"
 )
 
-# Optional modifier agent to adjust existing plans based on user instructions
-modify_agent = Agent(
-    name="ModifyAgent",
-    role="Itinerary Refiner",
-    goal="Update the existing itinerary and places based on a specific user modification request",
-    backstory="Carefully integrates user-specified additions or changes into an existing plan while preserving coherence.",
-    llm="gpt-4o-mini"
+# Question handler agent to answer travel-related questions
+question_agent = Agent(
+    name="QuestionAgent",
+    role="Travel Information Assistant",
+    goal="Answer user questions about travel, routes, recommendations, and general travel advice",
+    backstory="Expert travel consultant who provides helpful answers about destinations, routes, travel tips, and recommendations without modifying any itineraries.",
+    llm="gpt-4"
+)
+
+# Modification handler agent to update itineraries
+modification_agent = Agent(
+    name="ModificationAgent", 
+    role="Itinerary Modifier",
+    goal="Update and modify travel itineraries based on user requests",
+    backstory="Specialist in adjusting travel plans, adding/removing places, and updating itineraries based on user preferences while maintaining trip coherence.",
+    llm="gpt-4"
 )
 
 # ExtractorAgent to parse free-form trip requests
@@ -42,11 +51,10 @@ extractor_agent = Agent(
     role="Request Extractor",
     goal="Extract city (or cities), interests list, and number of days from a free-form trip request",
     backstory="Expert at understanding natural language requests and producing clean structured JSON fields for downstream agents.",
-    llm="gpt-4o-mini"
+    llm="gpt-4"
 )
 
-# Define tasks
-def get_itinerary(city, interests, days):
+def get_itinerary(city: str, interests: str, days: int):
     research_task = Task(
         description=f"Find the best {interests} places in {city}.",
         agent=research_agent,
@@ -56,26 +64,36 @@ def get_itinerary(city, interests, days):
             "'latitude': float | null, 'longitude': float | null, 'notes': str }]."
         )
     )
-    # itinerary_task = Task(
-    #     description=f"Create a {days}-day itinerary in {city} focusing on {interests} using the research.",
-    #     agent=itinerary_agent,
-    #     expected_output="A structured day-by-day itinerary (morning/afternoon/evening) covering the requested number of days, referencing items from the research and including short logistics tips (distance/area clustering).",
-    #     depends_on=[research_task]
-    # )
+    
     crew = Crew(tasks=[research_task])
     result = crew.kickoff()
 
+    # Extract the actual content from CrewOutput (same fix as in question/modification functions)
     raw_research_output = None
-    if isinstance(result, dict):
+    if hasattr(result, 'raw'):
+        raw_research_output = str(result.raw).strip()
+    elif hasattr(result, '__str__'):
+        raw_research_output = str(result).strip()
+    elif isinstance(result, str):
+        raw_research_output = result.strip()
+    elif isinstance(result, dict):
         raw_research_output = result.get(research_task) or result.get("final_output")
-    else:
-        raw_research_output = result
 
     places = []
-    if isinstance(raw_research_output, str):
-        # Try JSON first
+    if raw_research_output:
+        # Clean the output by removing markdown code blocks if present
+        cleaned_output = raw_research_output
+        if cleaned_output.startswith('```json'):
+            cleaned_output = cleaned_output[7:]  # Remove ```json
+        elif cleaned_output.startswith('```'):
+            cleaned_output = cleaned_output[3:]   # Remove ```
+        if cleaned_output.endswith('```'):
+            cleaned_output = cleaned_output[:-3]  # Remove trailing ```
+        cleaned_output = cleaned_output.strip()
+        
+        # Try to parse as JSON first
         try:
-            parsed = json.loads(raw_research_output)
+            parsed = json.loads(cleaned_output)
             if isinstance(parsed, dict) and isinstance(parsed.get("places"), list):
                 places = parsed.get("places")
         except Exception:
@@ -88,63 +106,44 @@ def get_itinerary(city, interests, days):
                 if name and name not in unique_names:
                     unique_names.append(name)
             places = [{"name": n, "neighborhood": None, "category": None, "address": None, "latitude": None, "longitude": None, "notes": None} for n in unique_names[:15]]
-    elif isinstance(raw_research_output, dict) and isinstance(raw_research_output.get("places"), list):
-        places = raw_research_output.get("places")
 
     # Fallback: if we still have no places, ask OpenAI directly for JSON
     if not places:
         try:
             completion = openai.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4",
                 response_format={"type": "json_object"},
                 messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a travel research assistant. Return only valid JSON."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": (
-                            f"List top art/food places in {city} for interests: {interests}. "
-                            "Return JSON with key 'places' as a list of objects: "
-                            "[{ 'name': str, 'neighborhood': str | null, 'category': str, 'address': str | null, "
-                            "'latitude': float | null, 'longitude': float | null, 'notes': str }]."
-                        ),
-                    },
+                    {"role": "system", "content": "Return ONLY valid JSON with a 'places' array of travel destinations."},
+                    {"role": "user", "content": f"Find the best {interests} places in {city}. Return JSON with key 'places' containing an array of place objects with name, neighborhood, category, address, latitude, longitude, notes."},
                 ],
-                temperature=0.2,
+                temperature=0.7,
             )
-            content = completion.choices[0].message.content
-            raw_research_output = content
-            parsed = json.loads(content)
-            if isinstance(parsed, dict) and isinstance(parsed.get("places"), list):
-                places = parsed.get("places")
+            fallback_response = completion.choices[0].message.content.strip()
+            fallback_payload = json.loads(fallback_response)
+            if isinstance(fallback_payload, dict) and isinstance(fallback_payload.get("places"), list):
+                places = fallback_payload.get("places")
         except Exception:
-            places = []
+            pass
 
-    # Geocode with Mapbox for missing coordinates
-    mapbox_token = os.getenv("MAPBOX_API_KEY") or os.getenv("MAPBOX_ACCESS_TOKEN")
-    if mapbox_token and places:
-        for p in places:
-            lat = p.get("latitude")
-            lon = p.get("longitude")
-            if lat and lon:
+    # Geocode missing coordinates using Mapbox
+    if MAPBOX_TOKEN and places:
+        for place in places:
+            if place.get("latitude") is not None and place.get("longitude") is not None:
                 continue
-            query_parts = [p.get("name"), p.get("address"), city]
+            query_parts = [place.get("name"), place.get("address"), city]
             query = ", ".join([q for q in query_parts if q])
             try:
                 url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{requests.utils.quote(query)}.json"
-                resp = requests.get(url, params={"access_token": mapbox_token, "limit": 1}, timeout=10)
+                resp = requests.get(url, params={"access_token": MAPBOX_TOKEN, "limit": 1}, timeout=10)
                 if resp.ok:
-                    feats = resp.json().get("features", [])
-                    if feats:
-                        lon, lat = feats[0]["center"]
-                        p["latitude"] = lat
-                        p["longitude"] = lon
-                        if not p.get("address"):
-                            p["address"] = feats[0].get("place_name")
+                    features = resp.json().get("features", [])
+                    if features:
+                        longitude, latitude = features[0]["center"]
+                        place["latitude"] = latitude
+                        place["longitude"] = longitude
+                        if not place.get("address"):
+                            place["address"] = features[0].get("place_name")
             except Exception:
                 continue
 
@@ -153,146 +152,205 @@ def get_itinerary(city, interests, days):
         "interests": interests,
         "days": days,
         "places": places,
-        "raw_research_text": raw_research_output if isinstance(raw_research_output, str) else None,
+        "raw_research_text": str(raw_research_output) if raw_research_output else None,
     }
 
-
 def extract_trip_request(trip_request_text: str):
-    """Use ExtractorAgent to parse trip request into {city, interests, days}.
-
-    Returns defaults when not confidently extracted.
-    """
-    if not trip_request_text or not trip_request_text.strip():
-        return {"city": "Bangalore", "interests": "art, food", "days": 1}
-
-    task = Task(
+    extract_task = Task(
         description=(
-            "Extract structured fields from the following user request.\n"
-            f"Request: {trip_request_text}\n"
-            "Return STRICT JSON with keys: city (str), interests (str, comma-separated), days (int).\n"
-            "If multiple cities are mentioned, choose the primary one. If days not given, infer a reasonable default between 1 and 7."
+            f"Extract key information from this trip request: '{trip_request_text}'\n"
+            "Return STRICT JSON with keys: 'city' (string), 'interests' (string), 'days' (integer).\n"
+            "Examples:\n"
+            "- 'Plan a 3-day art and food tour in Paris' → {'city': 'Paris', 'interests': 'art, food', 'days': 3}\n"
+            "- 'I want to visit Tokyo for 5 days focusing on culture' → {'city': 'Tokyo', 'interests': 'culture', 'days': 5}"
         ),
         agent=extractor_agent,
-        expected_output="{ 'city': str, 'interests': str, 'days': int }",
+        expected_output="{ 'city': str, 'interests': str, 'days': int }"
     )
-    crew = Crew(tasks=[task])
+    
+    crew = Crew(tasks=[extract_task])
     result = crew.kickoff()
-    payload = None
+    
     if isinstance(result, dict):
-        output = result.get(task) or result.get("final_output") or next(iter(result.values()), None)
-        try:
-            payload = json.loads(output) if isinstance(output, str) else output
-        except Exception:
-            payload = None
-    if isinstance(payload, dict):
-        city = payload.get("city") or "Bangalore"
-        interests = payload.get("interests") or "art, food"
-        try:
-            days = int(payload.get("days", 1))
-        except Exception:
-            days = 1
-        days = max(1, min(7, days))
-        return {"city": city, "interests": interests, "days": days}
-    # Fallback
+        output = result.get(extract_task) or result.get("final_output")
+    else:
+        output = result
+    
+    try:
+        if isinstance(output, str):
+            parsed = json.loads(output)
+        else:
+            parsed = output
+        
+        if isinstance(parsed, dict) and all(k in parsed for k in ["city", "interests", "days"]):
+            return parsed
+    except Exception:
+        pass
+    
     return {"city": "Bangalore", "interests": "art, food", "days": 1}
 
+def handle_question(city: str, interests: str, days: int, user_question: str):
+    """Handle user questions about travel without modifying any itinerary."""
+    if not user_question or not user_question.strip():
+        return {
+            "type": "answer",
+            "response": "Please ask me a question about your travel plans."
+        }
 
-def apply_modification(city: str, interests: str, days: int, existing_places: list, instruction: str):
-    """Apply a user-specified modification to the itinerary using CrewAI conditionally.
+    question_task = Task(
+        description=(
+            f"Answer the user's travel question based on the trip context:\n"
+            f"City: {city}\n"
+            f"Interests: {interests}\n"
+            f"Trip Duration: {days} days\n"
+            f"User Question: {user_question}\n\n"
+            f"Provide a helpful, informative answer about travel, routes, recommendations, "
+            f"or general advice related to their trip. Do not modify any itinerary."
+        ),
+        agent=question_agent,
+        expected_output="A helpful text response answering the user's travel question"
+    )
 
-    If no instruction is provided, returns the existing data unchanged.
-    """
-    if not instruction or not instruction.strip():
+    crew = Crew(tasks=[question_task])
+    result = crew.kickoff()
+
+    # Extract response text from CrewOutput
+    response_text = "I'm here to help with your travel questions."
+    
+    # Handle CrewOutput object (newer CrewAI versions)
+    if hasattr(result, 'raw'):
+        response_text = str(result.raw).strip()
+    elif hasattr(result, '__str__'):
+        # CrewOutput can be converted to string directly
+        response_text = str(result).strip()
+    elif isinstance(result, str) and result.strip():
+        # Direct string response from CrewAI
+        response_text = result.strip()
+    elif isinstance(result, dict):
+        # Try multiple ways to extract the response from dict
+        output = None
+        if question_task in result:
+            output = result.get(question_task)
+        elif "final_output" in result:
+            output = result.get("final_output")
+        elif len(result.values()) > 0:
+            # Get first value from the result dict
+            output = list(result.values())[0]
+        
+        if isinstance(output, str) and output.strip():
+            response_text = output.strip()
+        elif isinstance(output, dict) and output.get("response"):
+            response_text = str(output.get("response"))
+
+    return {
+        "type": "answer",
+        "response": response_text
+    }
+
+def handle_modification(city: str, interests: str, days: int, existing_places: list, modification_request: str):
+    """Handle user requests to modify their itinerary."""
+    if not modification_request or not modification_request.strip():
         return {
             "city": city,
             "interests": interests,
             "days": days,
             "places": existing_places or [],
+            "type": "modification",
+            "response": "No changes requested."
         }
 
-    # Build a conditional modify task only when there is an instruction
-    modify_task = Task(
+    modification_task = Task(
         description=(
-            "Given the existing places (JSON below) and the user instruction, update the list.\n"
-            f"City: {city}\nInterests: {interests}\nDays: {days}\n"
-            f"Instruction: {instruction}\n"
-            f"Existing places JSON: {json.dumps(existing_places or [], ensure_ascii=False)}\n"
-            "Return STRICT JSON with key 'places' as a list of objects: "
-            "[{ 'name': str, 'neighborhood': str | null, 'category': str | null, 'address': str | null, "
-            "'latitude': float | null, 'longitude': float | null, 'notes': str | null }].\n"
-            "Always preserve existing entries unless the instruction requires changing them."
+            f"Update the itinerary based on the user's modification request:\n"
+            f"City: {city}\n"
+            f"Interests: {interests}\n"
+            f"Days: {days}\n"
+            f"Modification Request: {modification_request}\n"
+            f"Current places JSON: {json.dumps(existing_places or [], ensure_ascii=False)}\n\n"
+            f"Instructions:\n"
+            f"- Add places if user wants to add something\n"
+            f"- Remove places if user wants to remove something\n"
+            f"- Replace places if user wants to substitute\n"
+            f"- Maintain existing places unless specifically asked to change them\n"
+            f"- Return STRICT JSON with: {{'type': 'modification', 'response': 'description of changes', 'places': [...updated places...]}}\n"
+            f"Place objects: {{'name': str, 'neighborhood': str|null, 'category': str|null, 'address': str|null, "
+            f"'latitude': float|null, 'longitude': float|null, 'notes': str|null}}"
         ),
-        agent=modify_agent,
-        expected_output=(
-            "{ 'places': [ { 'name': str, 'neighborhood': str | null, 'category': str | null, 'address': str | null, "
-            "'latitude': float | null, 'longitude': float | null, 'notes': str | null } ] }"
-        ),
+        agent=modification_agent,
+        expected_output="JSON object with 'type': 'modification', 'response': description of changes, and 'places': updated array"
     )
 
-    crew = Crew(tasks=[modify_task])
+    crew = Crew(tasks=[modification_task])
     result = crew.kickoff()
 
-    modified_places = existing_places or []
-    parsed_payload = None
-    if isinstance(result, dict):
-        output = None
-        if modify_task in result:
-            output = result.get(modify_task)
-        elif "final_output" in result:
-            output = result.get("final_output")
-        elif len(result.values()) > 0:
-            try:
-                output = next(iter(result.values()))
-            except Exception:
-                output = result
-        try:
-            parsed_payload = json.loads(output) if isinstance(output, str) else output
-        except Exception:
-            parsed_payload = None
+    # Process the result - handle CrewOutput object
+    response_text = "I've processed your modification request."
+    updated_places = existing_places or []
+    
+    # Extract the actual content from CrewOutput
+    raw_output = None
+    if hasattr(result, 'raw'):
+        raw_output = str(result.raw).strip()
+    elif hasattr(result, '__str__'):
+        raw_output = str(result).strip()
     elif isinstance(result, str):
+        raw_output = result.strip()
+    elif isinstance(result, dict):
+        raw_output = result.get(modification_task) or result.get("final_output") or next(iter(result.values()), result)
+    
+    # Try to parse as JSON (with markdown cleanup)
+    parsed_payload = None
+    if raw_output:
+        # Clean the output by removing markdown code blocks if present
+        cleaned_output = raw_output
+        if cleaned_output.startswith('```json'):
+            cleaned_output = cleaned_output[7:]  # Remove ```json
+        elif cleaned_output.startswith('```'):
+            cleaned_output = cleaned_output[3:]   # Remove ```
+        if cleaned_output.endswith('```'):
+            cleaned_output = cleaned_output[:-3]  # Remove trailing ```
+        cleaned_output = cleaned_output.strip()
+        
         try:
-            parsed_payload = json.loads(result)
+            parsed_payload = json.loads(cleaned_output)
         except Exception:
             parsed_payload = None
 
-    if isinstance(parsed_payload, dict) and isinstance(parsed_payload.get("places"), list):
-        modified_places = parsed_payload.get("places")
+    if isinstance(parsed_payload, dict):
+        response_text = parsed_payload.get("response", response_text)
+        if isinstance(parsed_payload.get("places"), list):
+            updated_places = parsed_payload.get("places")
     else:
-        # Fallback to direct LLM if Crew output is not parseable
+        # Fallback to direct LLM
         try:
             completion = openai.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4",
                 response_format={"type": "json_object"},
                 messages=[
-                    {"role": "system", "content": "Return ONLY valid JSON with a 'places' array."},
-                    {
-                        "role": "user",
-                        "content": (
-                            f"City: {city}. Interests: {interests}. Existing places: {json.dumps(existing_places or [])}. "
-                            f"Instruction: {instruction}. Return JSON with key 'places' as described."
-                        ),
-                    },
+                    {"role": "system", "content": "Return JSON with 'type': 'modification', 'response': description, and 'places': updated array."},
+                    {"role": "user", "content": f"City: {city}. Interests: {interests}. Days: {days}. Existing places: {json.dumps(existing_places or [])}. Modification request: {modification_request}. Update the places based on the request."},
                 ],
                 temperature=0.2,
             )
-            content = completion.choices[0].message.content
-            payload = json.loads(content)
-            if isinstance(payload, dict) and isinstance(payload.get("places"), list):
-                modified_places = payload.get("places")
+            fallback_response = completion.choices[0].message.content.strip()
+            fallback_payload = json.loads(fallback_response)
+            if isinstance(fallback_payload, dict):
+                response_text = fallback_payload.get("response", response_text)
+                if isinstance(fallback_payload.get("places"), list):
+                    updated_places = fallback_payload.get("places")
         except Exception:
-            modified_places = existing_places or []
+            pass
 
-    # Geocode missing coordinates using Mapbox for modified list
-    mapbox_token = os.getenv("MAPBOX_API_KEY") or os.getenv("MAPBOX_ACCESS_TOKEN")
-    if mapbox_token and modified_places:
-        for p in modified_places:
+    # Geocode missing coordinates for new places
+    if MAPBOX_TOKEN and updated_places:
+        for p in updated_places:
             if p.get("latitude") is not None and p.get("longitude") is not None:
                 continue
             query_parts = [p.get("name"), p.get("address"), city]
             query = ", ".join([q for q in query_parts if q])
             try:
                 url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{requests.utils.quote(query)}.json"
-                resp = requests.get(url, params={"access_token": mapbox_token, "limit": 1}, timeout=10)
+                resp = requests.get(url, params={"access_token": MAPBOX_TOKEN, "limit": 1}, timeout=10)
                 if resp.ok:
                     feats = resp.json().get("features", [])
                     if feats:
@@ -308,5 +366,7 @@ def apply_modification(city: str, interests: str, days: int, existing_places: li
         "city": city,
         "interests": interests,
         "days": days,
-        "places": modified_places,
+        "places": updated_places,
+        "type": "modification",
+        "response": response_text,
     }

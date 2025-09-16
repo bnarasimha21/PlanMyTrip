@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
 
-from agents import extract_trip_request, get_itinerary, apply_modification
+from agents import extract_trip_request, get_itinerary, handle_question, handle_modification
 
 
 app = FastAPI(title="LetMePlanMyTrip API", version="0.1.0")
@@ -78,14 +78,44 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
 @app.post("/modify")
 def modify(req: ModifyRequest) -> Dict[str, Any]:
     places_dicts = [p.model_dump() for p in req.places]
-    updated = apply_modification(
-        city=req.city,
-        interests=req.interests,
-        days=req.days,
-        existing_places=places_dicts,
-        instruction=req.instruction,
+    
+    # Determine if this is a question or modification request
+    instruction = req.instruction.lower().strip()
+    
+    # Question indicators
+    question_words = ['what', 'how', 'where', 'when', 'why', 'which', 'who']
+    question_phrases = ['best route', 'how far', 'distance', 'recommend', 'suggest', 'advice']
+    
+    is_question = (
+        instruction.endswith('?') or
+        any(instruction.startswith(word) for word in question_words) or
+        any(phrase in instruction for phrase in question_phrases)
     )
-    return updated  # {city, interests, days, places}
+    
+    if is_question:
+        # Handle as question - no places modification
+        response = handle_question(
+            city=req.city,
+            interests=req.interests,
+            days=req.days,
+            user_question=req.instruction,
+        )
+        # Add places for consistency with frontend expectations
+        response["city"] = req.city
+        response["interests"] = req.interests
+        response["days"] = req.days
+        response["places"] = places_dicts  # Keep existing places unchanged
+    else:
+        # Handle as modification request
+        response = handle_modification(
+            city=req.city,
+            interests=req.interests,
+            days=req.days,
+            existing_places=places_dicts,
+            modification_request=req.instruction,
+        )
+    
+    return response
 
 
 if __name__ == "__main__":
