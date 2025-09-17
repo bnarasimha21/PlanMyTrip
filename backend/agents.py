@@ -16,7 +16,7 @@ research_agent = Agent(
     role="Travel Researcher",
     goal="Find must see places in the city based on user interests",
     backstory="Expert in travel and local recommendations.",
-    llm="gpt-4"
+    llm="gpt-4o-mini"
 )
 
 itinerary_agent = Agent(
@@ -24,7 +24,7 @@ itinerary_agent = Agent(
     role="Itinerary Planner",
     goal="Create a itinerary based on user interests and research",
     backstory="Specialist in optimizing travel plans based on user interests and research.",
-    llm="gpt-4"
+    llm="gpt-4o-mini"
 )
 
 # Question handler agent to answer travel-related questions
@@ -33,7 +33,7 @@ question_agent = Agent(
     role="Travel Information Assistant",
     goal="Answer user questions about travel, routes, recommendations, and general travel advice",
     backstory="Expert travel consultant who provides helpful answers about destinations, routes, travel tips, and recommendations without modifying any itineraries.",
-    llm="gpt-4"
+    llm="gpt-4o-mini"
 )
 
 # Modification handler agent to update itineraries
@@ -42,7 +42,7 @@ modification_agent = Agent(
     role="Itinerary Modifier",
     goal="Update and modify travel itineraries based on user requests",
     backstory="Specialist in adjusting travel plans, adding/removing places, and updating itineraries based on user preferences while maintaining trip coherence.",
-    llm="gpt-4"
+    llm="gpt-4o-mini"
 )
 
 # ExtractorAgent to parse free-form trip requests
@@ -51,7 +51,7 @@ extractor_agent = Agent(
     role="Request Extractor",
     goal="Extract city (or cities), interests list, and number of days from a free-form trip request",
     backstory="Expert at understanding natural language requests and producing clean structured JSON fields for downstream agents.",
-    llm="gpt-4"
+    llm="gpt-4o-mini"
 )
 
 def get_itinerary(city: str, interests: str, days: int):
@@ -111,7 +111,7 @@ def get_itinerary(city: str, interests: str, days: int):
     if not places:
         try:
             completion = openai.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4o-mini",
                 response_format={"type": "json_object"},
                 messages=[
                     {"role": "system", "content": "Return ONLY valid JSON with a 'places' array of travel destinations."},
@@ -267,11 +267,12 @@ def handle_modification(city: str, interests: str, days: int, existing_places: l
             f"Days: {days}\n"
             f"Modification Request: {modification_request}\n"
             f"Current places JSON: {json.dumps(existing_places or [], ensure_ascii=False)}\n\n"
-            f"Instructions:\n"
-            f"- Add places if user wants to add something\n"
-            f"- Remove places if user wants to remove something\n"
-            f"- Replace places if user wants to substitute\n"
-            f"- Maintain existing places unless specifically asked to change them\n"
+            f"IMPORTANT RULES:\n"
+            f"- If user says 'add', 'include', or mentions 'to the list/itinerary': KEEP all existing places AND add the new one(s)\n"
+            f"- If user says 'remove' or 'delete': Remove only the specified place(s)\n"
+            f"- If user says 'replace': Replace only the specified place(s)\n"
+            f"- NEVER remove existing places unless explicitly asked to remove them\n"
+            f"- The final 'places' array should contain ALL places that should be in the itinerary\n"
             f"- Return STRICT JSON with: {{'type': 'modification', 'response': 'description of changes', 'places': [...updated places...]}}\n"
             f"Place objects: {{'name': str, 'neighborhood': str|null, 'category': str|null, 'address': str|null, "
             f"'latitude': float|null, 'longitude': float|null, 'notes': str|null}}"
@@ -324,7 +325,7 @@ def handle_modification(city: str, interests: str, days: int, existing_places: l
         # Fallback to direct LLM
         try:
             completion = openai.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4o-mini",
                 response_format={"type": "json_object"},
                 messages=[
                     {"role": "system", "content": "Return JSON with 'type': 'modification', 'response': description, and 'places': updated array."},

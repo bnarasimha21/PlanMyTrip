@@ -20,7 +20,7 @@ interface Place {
 }
 
 export default function App() {
-  const [tripRequest, setTripRequest] = useState('Plan a 1-day art and food tour in Bangalore');
+  const [tripRequest, setTripRequest] = useState('Plan a 1-day must see places in Bangalore');
   const [extracted, setExtracted] = useState<{ city: string; interests: string; days: number } | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [status, setStatus] = useState('');
@@ -31,9 +31,13 @@ export default function App() {
   const [chatInput, setChatInput] = useState('');
   const [isChatListening, setIsChatListening] = useState(false);
   const [hasGeneratedItinerary, setHasGeneratedItinerary] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animationRoute, setAnimationRoute] = useState<number[][]>([]);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const carMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const animationIdRef = useRef<number | null>(null);
 
   // Init Map
   useEffect(() => {
@@ -56,6 +60,7 @@ export default function App() {
     const map = mapRef.current;
     if (!map) return;
 
+
     // Remove any existing markers
     (window as any).__markers?.forEach((m: mapboxgl.Marker) => m.remove());
 
@@ -69,15 +74,25 @@ export default function App() {
     places.forEach((p) => {
       if (p.latitude == null || p.longitude == null) return;
       const cat = (p.category || '').toLowerCase();
-      const FOOD_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="%23D97706"/><path d="M7.75 4c.414 0 .75.336.75.75V9h.5V4.75a.75.75 0 011.5 0V9h.5V4.75a.75.75 0 011.5 0V10a2 2 0 01-2 2h-1A2 2 0 017 10V4.75c0-.414.336-.75.75-.75zM14.5 4a.75.75 0 01.75.75V9h1.25a.75.75 0 010 1.5H15.25V20a.75.75 0 01-1.5 0V4.75c0-.414.336-.75.75-.75z" fill="white"/></svg>';
-      const ART_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="%23E11D48"/><path d="M12 5c3.866 0 7 2.582 7 5.769 0 1.279-1.037 2.231-2.24 2.231h-1.042c-.666 0-1.074.706-.766 1.298.196.377.048.84-.327 1.051A4.5 4.5 0 0112 16.5C8.134 16.5 5 13.918 5 10.731 5 7.582 8.134 5 12 5zm-3.75 5.25a.75.75 0 100-1.5.75.75 0 000 1.5zm3-1.5a.75.75 0 100-1.5.75.75 0 000 1.5zm3 1.5a.75.75 0 100-1.5.75.75 0 000 1.5z" fill="white"/></svg>';
-      const DEFAULT_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="%234B5563"/><path d="M12 7l5 10H7l5-10z" fill="white"/></svg>';
+      // More prominent icons with bright colors that contrast with dark map
+      const FOOD_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="%23FF6B35" stroke="%23FFFFFF" stroke-width="2"/><path d="M8 6c.414 0 .75.336.75.75V12h.5V6.75a.75.75 0 011.5 0V12h.5V6.75a.75.75 0 011.5 0V13a2 2 0 01-2 2h-1a2 2 0 01-2-2V6.75c0-.414.336-.75.75-.75zM15 6a.75.75 0 01.75.75V12h1.25a.75.75 0 010 1.5H15.75V19a.75.75 0 01-1.5 0V6.75c0-.414.336-.75.75-.75z" fill="white"/></svg>';
+      const ART_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="%23FF1493" stroke="%23FFFFFF" stroke-width="2"/><path d="M12 6c3.866 0 7 2.582 7 5.769 0 1.279-1.037 2.231-2.24 2.231h-1.042c-.666 0-1.074.706-.766 1.298.196.377.048.84-.327 1.051A4.5 4.5 0 0112 17.5C8.134 17.5 5 14.918 5 11.731 5 8.582 8.134 6 12 6zm-3.75 5.25a.75.75 0 100-1.5.75.75 0 000 1.5zm3-1.5a.75.75 0 100-1.5.75.75 0 000 1.5zm3 1.5a.75.75 0 100-1.5.75.75 0 000 1.5z" fill="white"/></svg>';
+      const DEFAULT_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="%2300CED1" stroke="%23FFFFFF" stroke-width="2"/><path d="M12 8l4 8H8l4-8z" fill="white"/></svg>';
       const img = document.createElement('img');
       img.src = cat.includes('food') ? FOOD_ICON : cat.includes('art') ? ART_ICON : DEFAULT_ICON;
-      img.style.width = '32px';
-      img.style.height = '32px';
-      img.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+      img.style.width = '48px';
+      img.style.height = '48px';
+      img.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))';
       img.style.borderRadius = '50%';
+      img.style.cursor = 'pointer';
+      img.style.transition = 'filter 0.2s ease';
+      // Use filter brightness instead of transform to avoid position issues
+      img.addEventListener('mouseenter', () => {
+        img.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.6)) brightness(1.2)';
+      });
+      img.addEventListener('mouseleave', () => {
+        img.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))';
+      });
       const marker = new mapboxgl.Marker({ element: img, anchor: 'bottom' })
         .setLngLat([p.longitude!, p.latitude!])
         .setPopup(new mapboxgl.Popup({ offset: 16 }).setHTML(`
@@ -93,6 +108,266 @@ export default function App() {
 
     (window as any).__markers = markers;
   }, [places]);
+
+
+  // Function to interpolate points between coordinates for smoother animation
+  const interpolateRoute = (coordinates: number[][]): number[][] => {
+    const interpolated: number[][] = [];
+    const pointsPerSegment = 20; // Number of points between each pair of coordinates
+    
+    for (let i = 0; i < coordinates.length - 1; i++) {
+      const start = coordinates[i];
+      const end = coordinates[i + 1];
+      
+      for (let j = 0; j <= pointsPerSegment; j++) {
+        const ratio = j / pointsPerSegment;
+        const lat = start[1] + (end[1] - start[1]) * ratio;
+        const lng = start[0] + (end[0] - start[0]) * ratio;
+        interpolated.push([lng, lat]);
+      }
+    }
+    
+    return interpolated;
+  };
+
+  // Function to get route using Mapbox Directions API
+  const getRoute = async (coordinates: number[][]) => {
+    if (!MAPBOX_TOKEN || coordinates.length < 2) {
+      console.log('Skipping route API call:', { token: !!MAPBOX_TOKEN, coordCount: coordinates.length });
+      return null;
+    }
+    
+    const coordString = coordinates.map(coord => `${coord[0]},${coord[1]}`).join(';');
+    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordString}?geometries=geojson&access_token=${MAPBOX_TOKEN}`;
+    
+    console.log('Fetching route from:', url);
+    
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      console.log('Route API response:', data);
+      return data.routes[0]?.geometry?.coordinates || null;
+    } catch (error) {
+      console.error('Error fetching route:', error);
+      return null;
+    }
+  };
+
+  // Function to create and animate car
+  const startRouteAnimation = async () => {
+    const map = mapRef.current;
+    if (!map || places.length < 2) {
+      console.log('Cannot start animation: map missing or not enough places', { map: !!map, placesCount: places.length });
+      return;
+    }
+
+    console.log('Starting route animation with', places.length, 'places');
+    setIsAnimating(true);
+    
+    // Get coordinates of all places
+    const coordinates = places
+      .filter(p => p.latitude != null && p.longitude != null)
+      .map(p => [p.longitude!, p.latitude!]);
+    
+    if (coordinates.length < 2) {
+      console.log('Not enough valid coordinates for animation:', coordinates.length);
+      setIsAnimating(false);
+      return;
+    }
+
+    console.log('Using coordinates:', coordinates);
+
+    // Get the route
+    const routeCoords = await getRoute(coordinates);
+    let finalRoute = routeCoords || coordinates;
+    
+    // If we only have the basic coordinates (not a detailed route), interpolate more points
+    if (!routeCoords && coordinates.length >= 2) {
+      finalRoute = interpolateRoute(coordinates);
+    }
+    
+    setAnimationRoute(finalRoute);
+    
+    console.log('Route calculated:', { routeCoords: !!routeCoords, finalRouteLength: finalRoute.length });
+
+    // Add route line to map
+    if (map.getSource('route')) {
+      map.removeLayer('route-line');
+      map.removeSource('route');
+    }
+
+    map.addSource('route', {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: finalRoute
+        }
+      }
+    });
+
+    map.addLayer({
+      id: 'route-line',
+      type: 'line',
+      source: 'route',
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round'
+      },
+      paint: {
+        'line-color': '#00FF88',
+        'line-width': 4,
+        'line-opacity': 0.8
+      }
+    });
+
+    // Create car icon
+    const carIcon = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="carGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%2300FF88;stop-opacity:1" /><stop offset="100%" style="stop-color:%2300CC6A;stop-opacity:1" /></linearGradient></defs><ellipse cx="16" cy="26" rx="14" ry="4" fill="rgba(0,0,0,0.2)"/><rect x="6" y="12" width="20" height="12" rx="2" fill="url(%23carGrad)" stroke="%23FFFFFF" stroke-width="1.5"/><rect x="8" y="8" width="16" height="6" rx="3" fill="url(%23carGrad)" stroke="%23FFFFFF" stroke-width="1.5"/><circle cx="10" cy="22" r="2.5" fill="%23333" stroke="%23FFF" stroke-width="1"/><circle cx="22" cy="22" r="2.5" fill="%23333" stroke="%23FFF" stroke-width="1"/><rect x="9" y="14" width="3" height="2" rx="1" fill="rgba(255,255,255,0.8)"/><rect x="13" y="14" width="3" height="2" rx="1" fill="rgba(255,255,255,0.8)"/><rect x="17" y="14" width="3" height="2" rx="1" fill="rgba(255,255,255,0.8)"/><polygon points="16,4 18,8 14,8" fill="%23FFD700" stroke="%23FFF" stroke-width="1"/></svg>';
+    
+    const carElement = document.createElement('img');
+    carElement.src = carIcon;
+    carElement.style.width = '40px';
+    carElement.style.height = '40px';
+    carElement.style.filter = 'drop-shadow(0 4px 8px rgba(0,255,136,0.4))';
+    carElement.style.borderRadius = '50%';
+    carElement.style.zIndex = '1000';
+
+    // Remove existing car marker
+    if (carMarkerRef.current) {
+      carMarkerRef.current.remove();
+    }
+
+    // Create new car marker
+    const carMarker = new mapboxgl.Marker({
+      element: carElement,
+      anchor: 'center'
+    }).setLngLat(finalRoute[0]).addTo(map);
+    
+    carMarkerRef.current = carMarker;
+    console.log('Car marker created at:', finalRoute[0]);
+
+    // Animate car along route
+    console.log('Starting car animation with route length:', finalRoute.length);
+    animateCarAlongRoute(finalRoute, carMarker);
+  };
+
+  // Function to animate car movement
+  const animateCarAlongRoute = (route: number[][], carMarker: mapboxgl.Marker) => {
+    let currentIndex = 0;
+    const speed = 200; // Animation speed (lower = faster)
+    let animating = true;
+    
+    const animate = () => {
+      if (!animating || currentIndex >= route.length - 1) {
+        setIsAnimating(false);
+        return;
+      }
+
+      const current = route[currentIndex];
+      const next = route[currentIndex + 1];
+      
+      if (!current || !next) {
+        setIsAnimating(false);
+        return;
+      }
+
+      // Calculate bearing for car rotation
+      const bearing = calculateBearing(current, next);
+      
+      // Update car position
+      carMarker.setLngLat([current[0], current[1]]);
+      
+      // Rotate car element
+      const carElement = carMarker.getElement();
+      carElement.style.transform = `rotate(${bearing}deg)`;
+
+      currentIndex++;
+      
+      // Store animation state in ref to allow stopping
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current);
+      }
+      
+      animationIdRef.current = requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (animating) animate();
+        }, speed);
+      });
+    };
+
+    // Stop function for this animation
+    const stopAnimation = () => {
+      animating = false;
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current);
+      }
+    };
+
+    // Store stop function
+    (carMarker as any).__stopAnimation = stopAnimation;
+
+    animate();
+  };
+
+  // Helper function to calculate bearing between two points
+  const calculateBearing = (start: number[], end: number[]): number => {
+    const startLat = start[1] * Math.PI / 180;
+    const startLon = start[0] * Math.PI / 180;
+    const endLat = end[1] * Math.PI / 180;
+    const endLon = end[0] * Math.PI / 180;
+
+    const dLon = endLon - startLon;
+    const y = Math.sin(dLon) * Math.cos(endLat);
+    const x = Math.cos(startLat) * Math.sin(endLat) - Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLon);
+
+    const bearing = Math.atan2(y, x) * 180 / Math.PI;
+    return (bearing + 360) % 360;
+  };
+
+  // Function to stop animation
+  const stopRouteAnimation = () => {
+    setIsAnimating(false);
+    if (animationIdRef.current) {
+      cancelAnimationFrame(animationIdRef.current);
+    }
+    if (carMarkerRef.current) {
+      // Call the marker's stop function if it exists
+      if ((carMarkerRef.current as any).__stopAnimation) {
+        (carMarkerRef.current as any).__stopAnimation();
+      }
+      carMarkerRef.current.remove();
+      carMarkerRef.current = null;
+    }
+    
+    // Remove route line from map
+    const map = mapRef.current;
+    if (map && map.getSource('route')) {
+      map.removeLayer('route-line');
+      map.removeSource('route');
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopRouteAnimation();
+    };
+  }, []);
+
+  // Resize map when sidebar appears/disappears
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    
+    // Delay resize to allow DOM to update
+    const resizeTimeout = setTimeout(() => {
+      map.resize();
+    }, 100);
+    
+    return () => clearTimeout(resizeTimeout);
+  }, [hasGeneratedItinerary, places.length > 0]);
 
   // Mic integration
   const startListening = () => {
@@ -490,6 +765,27 @@ export default function App() {
                   className="w-full h-full rounded-none"
                   style={{ background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)' }}
                 />
+
+                {/* Route Animation Button Overlay */}
+                {places.length >= 2 && (
+                  <div className="absolute top-6 right-12 z-10">
+                    <button 
+                      onClick={isAnimating ? stopRouteAnimation : startRouteAnimation}
+                      className={`py-3 px-6 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg backdrop-blur-sm ${
+                        isAnimating 
+                          ? 'bg-orange-500/90 hover:bg-orange-600/90 text-white' 
+                          : 'bg-blue-600/90 hover:bg-blue-700/90 text-white'
+                      }`}
+                      disabled={places.length < 2}
+                    >
+                      {isAnimating ? (
+                        <>🛑 Stop Route</>
+                      ) : (
+                        <>🚗 Show Route Animation</>
+                      )}
+                    </button>
+                  </div>
+                )}
 
                 {/* Map Loading Overlay */}
                 {!MAPBOX_TOKEN && (

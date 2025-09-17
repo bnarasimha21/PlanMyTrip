@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
 
-from agents import extract_trip_request, get_itinerary, handle_question, handle_modification
+from fast_agents import fast_extract_trip_request, fast_get_itinerary, fast_handle_question, fast_handle_modification
 
 
 app = FastAPI(title="LetMePlanMyTrip API", version="0.1.0")
@@ -56,14 +56,14 @@ def health() -> Dict[str, Any]:
 
 @app.post("/extract")
 def extract(req: ExtractRequest) -> Dict[str, Any]:
-    parsed = extract_trip_request(req.text)
+    parsed = fast_extract_trip_request(req.text)  # Use fast version
     return parsed
 
 
 @app.post("/itinerary")
 def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
     if req.trip_request and not (req.city and req.interests and req.days):
-        parsed = extract_trip_request(req.trip_request)
+        parsed = fast_extract_trip_request(req.trip_request)  # Use fast version
         city = parsed["city"]
         interests = parsed["interests"]
         days = parsed["days"]
@@ -71,7 +71,7 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
         city = req.city or "Bangalore"
         interests = req.interests or "art, food"
         days = req.days or 1
-    data = get_itinerary(city=city, interests=interests, days=days)
+    data = fast_get_itinerary(city=city, interests=interests, days=days)  # Use fast version
     return data  # {city, interests, days, places, raw_research_text}
 
 
@@ -94,7 +94,7 @@ def modify(req: ModifyRequest) -> Dict[str, Any]:
     
     if is_question:
         # Handle as question - no places modification
-        response = handle_question(
+        response = fast_handle_question(  # Use fast version
             city=req.city,
             interests=req.interests,
             days=req.days,
@@ -107,7 +107,7 @@ def modify(req: ModifyRequest) -> Dict[str, Any]:
         response["places"] = places_dicts  # Keep existing places unchanged
     else:
         # Handle as modification request
-        response = handle_modification(
+        response = fast_handle_modification(  # Use fast version
             city=req.city,
             interests=req.interests,
             days=req.days,
