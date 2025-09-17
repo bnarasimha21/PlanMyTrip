@@ -1008,60 +1008,64 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 text-white">
       {/* Header */}
-      <div className="bg-black/30 backdrop-blur-md border-b border-white/10">
+      <div className="bg-slate-800/90 backdrop-blur-md border-b border-slate-600 shadow-lg">
         <div className="px-6 py-8 flex flex-col justify-center">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
             ✈️ Plan My Trip
           </h1>
-          <p className="text-sm text-gray-300 mt-1">AI-powered travel planning with interactive maps</p>
+          <p className="text-sm text-slate-300 mt-1">AI-powered travel planning with interactive maps</p>
         </div>
       </div>
 
             <div className="flex h-[calc(100vh-120px)]">
               {/* Sidebar */}
-              <div className="w-[640px] bg-black/30 backdrop-blur-xl border-r border-white/10 overflow-hidden flex flex-col">
+              <div className="w-[640px] bg-slate-900/95 backdrop-blur-xl border-r border-slate-600 overflow-hidden flex flex-col shadow-lg">
           <div className="p-6 space-y-6 flex-shrink-0">
             {/* Trip Request Section with Voice Input */}
-            <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <span className="w-8 h-8 bg-gradient-to-r from-slate-600 to-gray-600 rounded-full flex items-center justify-center text-sm">✍️</span>
-                  Trip Request
-                </h3>
-                <div className="flex items-center gap-2">
-                  {!isTripRequestCollapsed && (
-                    <button
-                      onClick={startListening}
-                      disabled={isListening}
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                        isListening
-                          ? 'bg-red-600 hover:bg-red-700 animate-pulse text-white'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:scale-110'
-                      } disabled:opacity-50`}
-                      title={isListening ? 'Listening...' : 'Start Speaking'}
-                    >
-                      🎤
-                    </button>
-                  )}
-                  <button 
-                    onClick={() => setIsTripRequestCollapsed(!isTripRequestCollapsed)}
-                    className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all duration-200"
-                    title={isTripRequestCollapsed ? 'Expand Trip Request' : 'Collapse Trip Request'}
-                  >
-                    {isTripRequestCollapsed ? '▼' : '▲'}
-                  </button>
+            <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl border border-slate-600 shadow-lg">
+              <button
+                onClick={() => setIsTripRequestCollapsed(!isTripRequestCollapsed)}
+                className="w-full p-6 text-left hover:bg-slate-700/50 transition-colors duration-200 rounded-2xl"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold flex items-center gap-2 text-white">
+                    <span className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-sm text-white">✍️</span>
+                    Trip Request
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {!isTripRequestCollapsed && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startListening();
+                        }}
+                        disabled={isListening}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                          isListening
+                            ? 'bg-red-500 hover:bg-red-600 animate-pulse text-white'
+                            : 'bg-blue-500 hover:bg-blue-600 text-white hover:scale-110'
+                        } disabled:opacity-50`}
+                        title={isListening ? 'Listening...' : 'Start Speaking'}
+                      >
+                        🎤
+                      </button>
+                    )}
+                    <span className={`transform transition-transform duration-200 text-slate-300`}>
+                      {isTripRequestCollapsed ? '▼' : '▲'}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </button>
               
               {!isTripRequestCollapsed && (
-                <>
+                <div className="px-6 pb-6">
                   <textarea
                     value={tripRequest}
                     onChange={(e) => setTripRequest(e.target.value)}
                     rows={2}
-                    className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none mb-4"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-xl p-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none mb-4 shadow-sm text-xl"
                     placeholder="Describe your dream trip... e.g., 'Plan a 3-day art and food tour in Paris'"
                   />
                   
@@ -1069,7 +1073,7 @@ export default function App() {
                   <div className="flex gap-3">
                     <button 
                       onClick={doExtract}
-                      className={`py-3 px-4 bg-gradient-to-r from-slate-600 to-gray-600 hover:from-slate-700 hover:to-gray-700 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 ${
+                      className={`py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-emerald-500/25 ${
                         extracted ? 'flex-1' : 'w-full'
                       }`}
                     >
@@ -1078,58 +1082,58 @@ export default function App() {
                     {extracted && (
                       <button 
                         onClick={doItinerary}
-                        className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl font-medium transition-all duration-200 transform hover:scale-105"
+                        className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-md"
                       >
                         🗺️ Generate Itinerary
                       </button>
                     )}
                   </div>
-                </>
+                </div>
               )}
 
             </div>
 
             {/* Extracted Details - Collapsible */}
             {extracted && (
-              <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-2xl border border-emerald-500/20">
+              <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl border border-slate-600 shadow-lg">
                 <button
                   onClick={() => setIsExtractedCollapsed(!isExtractedCollapsed)}
-                  className="w-full p-6 text-left hover:bg-emerald-500/5 transition-colors duration-200 rounded-2xl"
+                  className="w-full p-6 text-left hover:bg-slate-700/50 transition-colors duration-200 rounded-2xl"
                 >
-                  <h3 className="text-lg font-semibold flex items-center justify-between">
+                  <h3 className="text-lg font-semibold flex items-center justify-between text-white">
                     <div className="flex items-center gap-2">
-                      <span className="w-8 h-8 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-full flex items-center justify-center text-sm">✅</span>
+                      <span className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-sm text-white">✅</span>
                       Trip Details
                     </div>
-                    <span className={`transform transition-transform duration-200 ${isExtractedCollapsed ? '' : 'rotate-180'}`}>
-                      ⌄
+                    <span className={`transform transition-transform duration-200 text-slate-300 ${isExtractedCollapsed ? '' : 'rotate-180'}`}>
+                      {isExtractedCollapsed ? '▼' : '▲'}
                     </span>
                   </h3>
                 </button>
                 
                 {!isExtractedCollapsed && (
                   <div className="px-6 pb-6">
-                    <div className="bg-white/5 rounded-xl p-4 space-y-3">
+                    <div className="bg-slate-800 rounded-xl p-4 space-y-3 border border-slate-600 shadow-sm">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center text-xs">🏙️</span>
-                          <span className="text-gray-300 font-medium">Destination:</span>
+                          <span className="w-6 h-6 bg-blue-600/30 rounded-full flex items-center justify-center text-xs">🏙️</span>
+                          <span className="text-slate-300 font-medium">Destination:</span>
                         </div>
-                        <span className="font-semibold text-emerald-300 bg-emerald-500/20 px-3 py-1 rounded-lg">{extracted.city}</span>
+                        <span className="font-semibold text-green-400 bg-green-600/20 px-3 py-1 rounded-lg">{extracted.city}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 bg-purple-500/20 rounded-full flex items-center justify-center text-xs">🎯</span>
-                          <span className="text-gray-300 font-medium">Interests:</span>
+                          <span className="w-6 h-6 bg-purple-600/30 rounded-full flex items-center justify-center text-xs">🎯</span>
+                          <span className="text-slate-300 font-medium">Interests:</span>
                         </div>
-                        <span className="font-semibold text-purple-300 bg-purple-500/20 px-3 py-1 rounded-lg">{extracted.interests}</span>
+                        <span className="font-semibold text-purple-400 bg-purple-600/20 px-3 py-1 rounded-lg">{extracted.interests}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 bg-amber-500/20 rounded-full flex items-center justify-center text-xs">📅</span>
-                          <span className="text-gray-300 font-medium">Duration:</span>
+                          <span className="w-6 h-6 bg-amber-600/30 rounded-full flex items-center justify-center text-xs">📅</span>
+                          <span className="text-slate-300 font-medium">Duration:</span>
                         </div>
-                        <span className="font-semibold text-amber-300 bg-amber-500/20 px-3 py-1 rounded-lg">
+                        <span className="font-semibold text-amber-400 bg-amber-600/20 px-3 py-1 rounded-lg">
                           {extracted.days} {extracted.days === 1 ? 'Day' : 'Days'}
                         </span>
                       </div>
@@ -1154,18 +1158,18 @@ export default function App() {
             {/* AI Itinerary Assistant Chatbot - Full Height */}
             {hasGeneratedItinerary && (
               <div className="flex-1 p-6 pt-0 flex flex-col overflow-hidden">
-                <div className="bg-white/5 rounded-2xl border border-white/10 flex flex-col h-full">
+                <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl border border-slate-600 shadow-lg flex flex-col h-full">
                   <div className="p-6 pb-4 flex-shrink-0">
-                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <h3 className="text-lg font-semibold flex items-center gap-2 text-white">
                       <span className="w-8 h-8 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center text-sm">🤖</span>
                       AI Itinerary Assistant
                     </h3>
                   </div>
 
                   {/* Chat Messages - Flexible Height */}
-                  <div className="bg-white/10 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-white/20 scrollbar-hide">
+                  <div className="bg-slate-700/60 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-slate-600 scrollbar-hide">
                     {chatMessages.length === 0 ? (
-                      <div className="text-center text-gray-400 py-8">
+                      <div className="text-center text-slate-400 py-8">
                         <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-3">
                           💬
                         </div>
@@ -1216,7 +1220,7 @@ export default function App() {
                           value={chatInput}
                           onChange={(e) => setChatInput(e.target.value)}
                           onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
-                          className="w-full bg-white/10 border border-white/20 rounded-xl p-3 pr-12 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          className="w-full bg-slate-700 border border-slate-600 rounded-xl p-3 pr-12 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                           placeholder="Ask about your itinerary or request changes..."
                         />
                         <button
@@ -1241,7 +1245,7 @@ export default function App() {
                       </button>
                     </div>
 
-                    <div className="mt-3 text-xs text-gray-400 text-center">
+                    <div className="mt-3 text-xs text-slate-400 text-center">
                       💡 Try asking: "Add a restaurant", "Remove a place", "What's nearby?", or "Best order to visit?"
                     </div>
                   </div>
@@ -1419,19 +1423,19 @@ export default function App() {
 
               {/* Right Sidebar - Itinerary */}
               {(hasGeneratedItinerary || places.length > 0) && (
-                <div className="w-[640px] bg-black/30 backdrop-blur-xl border-l border-white/10 overflow-y-auto">
+                <div className="w-[640px] bg-slate-900/95 backdrop-blur-xl border-l border-slate-600 overflow-y-auto shadow-lg">
                   <div className="p-6">
-                    <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-                      <h3 className="text-xl font-semibold mb-6 flex items-center gap-3">
-                        <span className="w-10 h-10 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-full flex items-center justify-center text-sm">🗺️</span>
+                    <div className="bg-slate-800/80 rounded-2xl p-6 border border-slate-600 shadow-lg">
+                      <h3 className="text-xl font-semibold mb-6 flex items-center gap-3 text-white">
+                        <span className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full flex items-center justify-center text-sm">🗺️</span>
                         Your Itinerary
-                        {places.length > 0 && <span className="text-sm font-normal text-gray-400">({places.length} places)</span>}
+                        {places.length > 0 && <span className="text-sm font-normal text-slate-400">({places.length} places)</span>}
                       </h3>
                       
                       {places.length > 0 ? (
                         <div className="space-y-4">
                           {places.map((place, index) => (
-                          <div key={index} className="bg-white/10 rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-colors duration-200">
+                          <div key={index} className="bg-slate-700/80 rounded-xl p-4 border border-slate-600 hover:bg-slate-700 transition-colors duration-200 shadow-sm">
                             <div className="flex items-start gap-3">
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
                                 place.category?.toLowerCase().includes('food') ? 'bg-amber-600 text-white' :
@@ -1479,31 +1483,31 @@ export default function App() {
                         </div>
                       ) : (
                         <div className="text-center py-12">
-                          <div className="w-16 h-16 bg-gradient-to-r from-gray-600 to-slate-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <div className="w-16 h-16 bg-gradient-to-r from-slate-600 to-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
                             🗺️
                           </div>
-                          <h4 className="text-lg font-semibold text-gray-300 mb-2">No Itinerary Yet</h4>
-                          <p className="text-sm text-gray-400">Generate an itinerary to see your places here</p>
+                          <h4 className="text-lg font-semibold text-slate-300 mb-2">No Itinerary Yet</h4>
+                          <p className="text-sm text-slate-400">Generate an itinerary to see your places here</p>
                         </div>
                       )}
                       
                       {extracted && (
-                        <div className="mt-6 pt-6 border-t border-white/10">
-                          <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-xl p-4 border border-emerald-500/20">
-                            <h4 className="font-semibold text-emerald-300 mb-3 flex items-center gap-2">
+                        <div className="mt-6 pt-6 border-t border-slate-600">
+                          <div className="bg-gradient-to-r from-emerald-600/20 to-teal-600/20 rounded-xl p-4 border border-emerald-500/30 shadow-sm">
+                            <h4 className="font-semibold text-emerald-400 mb-3 flex items-center gap-2">
                               📋 Trip Summary
                             </h4>
                             <div className="space-y-2 text-sm">
                               <div className="flex justify-between">
-                                <span className="text-gray-300">Destination:</span>
+                                <span className="text-slate-300">Destination:</span>
                                 <span className="text-white font-medium">{extracted.city}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-300">Interests:</span>
+                                <span className="text-slate-300">Interests:</span>
                                 <span className="text-white font-medium">{extracted.interests}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-300">Duration:</span>
+                                <span className="text-slate-300">Duration:</span>
                                 <span className="text-white font-medium">{extracted.days} {extracted.days === 1 ? 'Day' : 'Days'}</span>
                               </div>
                             </div>
