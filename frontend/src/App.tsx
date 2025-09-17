@@ -28,6 +28,7 @@ export default function App() {
   const [modifyInput, setModifyInput] = useState('');
   const [isExtractedCollapsed, setIsExtractedCollapsed] = useState(true);
   const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'bot', message: string, timestamp: Date}>>([]);
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   const [chatInput, setChatInput] = useState('');
   const [isChatListening, setIsChatListening] = useState(false);
   const [hasGeneratedItinerary, setHasGeneratedItinerary] = useState(false);
@@ -66,9 +67,26 @@ export default function App() {
 
     const markers: mapboxgl.Marker[] = [];
     if (places.length > 0) {
-      const avgLat = places.reduce((a, p) => a + (p.latitude || 0), 0) / places.length;
-      const avgLon = places.reduce((a, p) => a + (p.longitude || 0), 0) / places.length;
-      map.easeTo({ center: [avgLon, avgLat], zoom: 12 });
+      // Calculate bounds to fit all markers
+      const validPlaces = places.filter(p => p.latitude != null && p.longitude != null);
+      if (validPlaces.length > 0) {
+        const lats = validPlaces.map(p => p.latitude!);
+        const lons = validPlaces.map(p => p.longitude!);
+        
+        const minLat = Math.min(...lats);
+        const maxLat = Math.max(...lats);
+        const minLon = Math.min(...lons);
+        const maxLon = Math.max(...lons);
+        
+        // Create bounds with padding
+        const bounds = new mapboxgl.LngLatBounds([minLon, minLat], [maxLon, maxLat]);
+        
+        // Fit map to bounds with padding
+        map.fitBounds(bounds, {
+          padding: { top: 50, bottom: 50, left: 50, right: 50 },
+          maxZoom: 15 // Prevent zooming in too much for close markers
+        });
+      }
     }
 
     places.forEach((p) => {
@@ -77,9 +95,13 @@ export default function App() {
       // More prominent icons with bright colors that contrast with dark map
       const FOOD_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="%23FF6B35" stroke="%23FFFFFF" stroke-width="2"/><path d="M8 6c.414 0 .75.336.75.75V12h.5V6.75a.75.75 0 011.5 0V12h.5V6.75a.75.75 0 011.5 0V13a2 2 0 01-2 2h-1a2 2 0 01-2-2V6.75c0-.414.336-.75.75-.75zM15 6a.75.75 0 01.75.75V12h1.25a.75.75 0 010 1.5H15.75V19a.75.75 0 01-1.5 0V6.75c0-.414.336-.75.75-.75z" fill="white"/></svg>';
       const ART_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="%23FF1493" stroke="%23FFFFFF" stroke-width="2"/><path d="M12 6c3.866 0 7 2.582 7 5.769 0 1.279-1.037 2.231-2.24 2.231h-1.042c-.666 0-1.074.706-.766 1.298.196.377.048.84-.327 1.051A4.5 4.5 0 0112 17.5C8.134 17.5 5 14.918 5 11.731 5 8.582 8.134 6 12 6zm-3.75 5.25a.75.75 0 100-1.5.75.75 0 000 1.5zm3-1.5a.75.75 0 100-1.5.75.75 0 000 1.5zm3 1.5a.75.75 0 100-1.5.75.75 0 000 1.5z" fill="white"/></svg>';
+      const SIGHTSEEING_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="%237C3AED" stroke="%23FFFFFF" stroke-width="2"/><path d="M6 20h12v-2H6v2zm6-16L8 8v4h8V8l-4-4zm-1 6V8.5l1-1 1 1V10h-2z" fill="white"/><rect x="10" y="14" width="4" height="2" fill="white"/><circle cx="12" cy="6" r="1" fill="white"/></svg>';
       const DEFAULT_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="%2300CED1" stroke="%23FFFFFF" stroke-width="2"/><path d="M12 8l4 8H8l4-8z" fill="white"/></svg>';
       const img = document.createElement('img');
-      img.src = cat.includes('food') ? FOOD_ICON : cat.includes('art') ? ART_ICON : DEFAULT_ICON;
+      img.src = cat.includes('food') ? FOOD_ICON : 
+                cat.includes('art') ? ART_ICON : 
+                (cat.includes('sight') || cat.includes('culture') || cat.includes('temple') || cat.includes('monument') || cat.includes('landmark') || cat.includes('tourist')) ? SIGHTSEEING_ICON : 
+                DEFAULT_ICON;
       img.style.width = '48px';
       img.style.height = '48px';
       img.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))';
@@ -368,6 +390,13 @@ export default function App() {
     
     return () => clearTimeout(resizeTimeout);
   }, [hasGeneratedItinerary, places.length > 0]);
+
+  // Auto-scroll chatbot to bottom when new messages appear
+  useEffect(() => {
+    if (chatMessagesEndRef.current) {
+      chatMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages]);
 
   // Mic integration
   const startListening = () => {
@@ -691,8 +720,8 @@ export default function App() {
                         <div key={index} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                           <div className={`max-w-[80%] p-3 rounded-lg ${
                             msg.type === 'user' 
-                              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white ml-8' 
-                              : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white mr-8'
+                              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white ml-8 shadow-lg' 
+                              : 'bg-gradient-to-r from-slate-600 to-slate-700 text-white mr-8 shadow-lg'
                           }`}>
                             <p className="text-sm">{msg.message}</p>
                             <p className="text-xs opacity-70 mt-1">
@@ -705,7 +734,7 @@ export default function App() {
                       {/* Show processing indicator in chat */}
                       {status && status.includes('Processing') && (
                         <div className="flex justify-start">
-                          <div className="max-w-[80%] p-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white mr-8">
+                          <div className="max-w-[80%] p-3 rounded-lg bg-gradient-to-r from-slate-600 to-slate-700 text-white mr-8 shadow-lg">
                             <div className="flex items-center gap-2">
                               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                               <p className="text-sm">{status}</p>
@@ -713,6 +742,9 @@ export default function App() {
                           </div>
                         </div>
                       )}
+                      
+                      {/* Invisible div for auto-scrolling */}
+                      <div ref={chatMessagesEndRef} />
                     </div>
                   )}
                 </div>
@@ -819,7 +851,10 @@ export default function App() {
                             <div className="flex items-start gap-3">
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
                                 place.category?.toLowerCase().includes('food') ? 'bg-amber-600 text-white' :
-                                place.category?.toLowerCase().includes('art') ? 'bg-rose-600 text-white' : 'bg-slate-600 text-white'
+                                place.category?.toLowerCase().includes('art') ? 'bg-rose-600 text-white' :
+                                (place.category?.toLowerCase().includes('sight') || place.category?.toLowerCase().includes('culture') || 
+                                 place.category?.toLowerCase().includes('temple') || place.category?.toLowerCase().includes('monument') ||
+                                 place.category?.toLowerCase().includes('landmark') || place.category?.toLowerCase().includes('tourist')) ? 'bg-violet-600 text-white' : 'bg-slate-600 text-white'
                               }`}>
                                 {index + 1}
                               </div>
@@ -834,10 +869,16 @@ export default function App() {
                                   <div className="flex items-center gap-2 mb-2">
                                     <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
                                       place.category?.toLowerCase().includes('food') ? 'bg-amber-600/20 text-amber-300' :
-                                      place.category?.toLowerCase().includes('art') ? 'bg-rose-600/20 text-rose-300' : 'bg-slate-600/20 text-slate-300'
+                                      place.category?.toLowerCase().includes('art') ? 'bg-rose-600/20 text-rose-300' :
+                                      (place.category?.toLowerCase().includes('sight') || place.category?.toLowerCase().includes('culture') || 
+                                       place.category?.toLowerCase().includes('temple') || place.category?.toLowerCase().includes('monument') ||
+                                       place.category?.toLowerCase().includes('landmark') || place.category?.toLowerCase().includes('tourist')) ? 'bg-violet-600/20 text-violet-300' : 'bg-slate-600/20 text-slate-300'
                                     }`}>
                                       {place.category?.toLowerCase().includes('food') ? '🍽️' :
-                                       place.category?.toLowerCase().includes('art') ? '🎨' : '📍'} {place.category}
+                                       place.category?.toLowerCase().includes('art') ? '🎨' :
+                                       (place.category?.toLowerCase().includes('sight') || place.category?.toLowerCase().includes('culture') || 
+                                        place.category?.toLowerCase().includes('temple') || place.category?.toLowerCase().includes('monument') ||
+                                        place.category?.toLowerCase().includes('landmark') || place.category?.toLowerCase().includes('tourist')) ? '🏛️' : '📍'} {place.category}
                                     </span>
                                   </div>
                                 )}

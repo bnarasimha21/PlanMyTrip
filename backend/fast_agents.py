@@ -87,7 +87,7 @@ def fast_handle_question(city: str, interests: str, days: int, user_question: st
             "response": "Please ask me a question about your travel plans."
         }
     
-    prompt = f"""{user_question} - {city}, {interests}, {days} days. Be concise."""
+    prompt = f"""{user_question} - Context: User is planning a travel to {city}, for {interests}, for {days} days. Be concise."""
 
     try:
         completion = openai.chat.completions.create(
