@@ -19,6 +19,29 @@ interface Place {
   notes?: string;
 }
 
+// Add custom styles for rich popups
+const POPUP_STYLES = `
+<style>
+.rich-popup .mapboxgl-popup-content {
+  padding: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+.rich-popup .mapboxgl-popup-tip {
+  border-top-color: white !important;
+  border-bottom-color: white !important;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+</style>`;
+
 export default function App() {
   const [tripRequest, setTripRequest] = useState('Plan a 1-day must see places in Bangalore');
   const [extracted, setExtracted] = useState<{ city: string; interests: string; days: number } | null>(null);
@@ -40,6 +63,9 @@ export default function App() {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const carMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const animationIdRef = useRef<number | null>(null);
+  const [isNarrationEnabled, setIsNarrationEnabled] = useState(true);
+  const narratedPlacesRef = useRef<Set<string>>(new Set());
+  const [isDayMode, setIsDayMode] = useState(false); // false = night mode (default)
 
   // Init Map
   useEffect(() => {
@@ -116,15 +142,126 @@ export default function App() {
       img.addEventListener('mouseleave', () => {
         img.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))';
       });
+      // Create rich popup with enhanced content
+      const createRichPopup = (place: Place) => {
+        const category = (place.category || '').toLowerCase();
+        let categoryIcon = '📍';
+        let categoryColor = '#6B7280';
+        
+        if (category.includes('food') || category.includes('restaurant') || category.includes('cafe')) {
+          categoryIcon = '🍽️';
+          categoryColor = '#FF6B35';
+        } else if (category.includes('art') || category.includes('museum') || category.includes('gallery')) {
+          categoryIcon = '🎨';
+          categoryColor = '#FF1493';
+        } else if (category.includes('sight') || category.includes('culture') || category.includes('temple') || 
+                   category.includes('monument') || category.includes('landmark') || category.includes('tourist')) {
+          categoryIcon = '🏛️';
+          categoryColor = '#7C3AED';
+        }
+
+        // Generate a simple, reliable placeholder image
+        const gradientId = `grad${Math.random().toString(36).substring(7)}`;
+        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="280" height="128" viewBox="0 0 280 128">
+          <defs>
+            <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:${categoryColor}" />
+              <stop offset="100%" style="stop-color:${categoryColor}dd" />
+            </linearGradient>
+          </defs>
+          <rect width="280" height="128" fill="url(#${gradientId})" />
+          <circle cx="140" cy="64" r="30" fill="rgba(255,255,255,0.15)" />
+          <text x="140" y="80" text-anchor="middle" fill="white" font-size="32" font-family="system-ui">${categoryIcon}</text>
+        </svg>`;
+        
+        // Try multiple encoding methods for better compatibility
+        let placeholderImage;
+        try {
+          placeholderImage = `data:image/svg+xml;base64,${btoa(svgContent)}`;
+          console.log('Generated base64 image for:', place.name);
+        } catch (e) {
+          placeholderImage = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
+          console.log('Generated URI encoded image for:', place.name);
+        }
+        
+        // Log image URL for debugging
+        console.log('Image URL length:', placeholderImage.length, 'for place:', place.name);
+        
+        // Generate a random rating for demo (you can replace with real data)
+        const rating = (4.0 + Math.random() * 1.0).toFixed(1);
+        const reviews = Math.floor(50 + Math.random() * 500);
+
+        return new mapboxgl.Popup({ 
+          offset: 16,
+          className: 'rich-popup',
+          maxWidth: '320px'
+        }).setHTML(`
+          ${POPUP_STYLES}
+          <div class="bg-white rounded-lg overflow-hidden shadow-xl border-0" style="min-width: 280px;">
+            <!-- Image Header -->
+            <div class="relative h-32 overflow-hidden" style="background: linear-gradient(135deg, ${categoryColor}dd, ${categoryColor}aa);">
+              <img 
+                src="${placeholderImage}" 
+                alt="${place.name}" 
+                class="w-full h-full object-cover"
+                style="display: block; max-width: 100%;"
+                onload="console.log('Image loaded successfully for: ${place.name}');"
+                onerror="console.log('Image failed to load for: ${place.name}'); this.style.display='none'; this.parentNode.querySelector('.fallback-icon').style.display='flex';"
+              >
+              <!-- Fallback icon if image fails -->
+              <div class="fallback-icon absolute inset-0 flex items-center justify-center" style="display: none; background: linear-gradient(135deg, ${categoryColor}, ${categoryColor}cc);">
+                <span style="font-size: 48px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">${categoryIcon}</span>
+              </div>
+              <div class="absolute top-2 right-2 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 text-xs font-medium" style="color: ${categoryColor};">
+                ${categoryIcon} ${place.category || 'Place'}
+              </div>
+            </div>
+            
+            <!-- Content -->
+            <div class="p-4">
+              <div class="flex items-start justify-between mb-2">
+                <h3 class="font-bold text-gray-900 text-lg leading-tight">${place.name}</h3>
+                <div class="flex items-center gap-1 ml-2">
+                  <span class="text-yellow-500 text-sm">⭐</span>
+                  <span class="text-sm font-medium text-gray-700">${rating}</span>
+                </div>
+              </div>
+              
+              ${place.neighborhood ? `
+                <p class="text-sm text-gray-600 mb-2 flex items-center gap-1">
+                  <span class="text-gray-400">📍</span> ${place.neighborhood}
+                </p>
+              ` : ''}
+              
+              <div class="flex items-center gap-1 text-xs text-gray-500 mb-3">
+                <span>${reviews} reviews</span>
+              </div>
+              
+              ${place.notes ? `
+                <p class="text-sm text-gray-700 mb-3 line-clamp-2">${place.notes}</p>
+              ` : ''}
+              
+              <!-- Action Buttons -->
+              <div class="w-full">
+                <button onclick="getDirections('${place.latitude}', '${place.longitude}')" 
+                        class="w-full flex items-center justify-center gap-1 py-2 px-3 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors duration-200">
+                  <span>🧭</span> Get Directions
+                </button>
+              </div>
+              
+              ${place.address ? `
+                <div class="mt-3 pt-3 border-t border-gray-100">
+                  <p class="text-xs text-gray-500">${place.address}</p>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `);
+      };
+
       const marker = new mapboxgl.Marker({ element: img, anchor: 'bottom' })
         .setLngLat([p.longitude!, p.latitude!])
-        .setPopup(new mapboxgl.Popup({ offset: 16 }).setHTML(`
-          <div class="p-3">
-            <h3 class="font-semibold text-gray-900 mb-1">${p.name}</h3>
-            <p class="text-sm text-gray-600 mb-2">${p.neighborhood || ''}</p>
-            <p class="text-xs text-gray-500">${p.notes || ''}</p>
-          </div>
-        `))
+        .setPopup(createRichPopup(p))
         .addTo(map);
       markers.push(marker);
     });
@@ -186,6 +323,9 @@ export default function App() {
 
     console.log('Starting route animation with', places.length, 'places');
     setIsAnimating(true);
+    
+    // Reset narrated places for new animation
+    narratedPlacesRef.current.clear();
     
     // Get coordinates of all places
     const coordinates = places
@@ -251,8 +391,8 @@ export default function App() {
     
     const carElement = document.createElement('img');
     carElement.src = carIcon;
-    carElement.style.width = '40px';
-    carElement.style.height = '40px';
+    carElement.style.width = '56px';
+    carElement.style.height = '56px';
     carElement.style.filter = 'drop-shadow(0 4px 8px rgba(0,255,136,0.4))';
     carElement.style.borderRadius = '50%';
     carElement.style.zIndex = '1000';
@@ -279,7 +419,7 @@ export default function App() {
   // Function to animate car movement
   const animateCarAlongRoute = (route: number[][], carMarker: mapboxgl.Marker) => {
     let currentIndex = 0;
-    const speed = 200; // Animation speed (lower = faster)
+    const speed = 350; // Animation speed (lower = faster)
     let animating = true;
     
     const animate = () => {
@@ -301,6 +441,12 @@ export default function App() {
       
       // Update car position
       carMarker.setLngLat([current[0], current[1]]);
+      
+      // Check if we're near any place and narrate it
+      const nearestPlace = findNearestPlace([current[0], current[1]]);
+      if (nearestPlace) {
+        narratePlace(nearestPlace.place.name, nearestPlace.index, places.length);
+      }
       
       // Rotate car element
       const carElement = carMarker.getElement();
@@ -349,6 +495,65 @@ export default function App() {
     return (bearing + 360) % 360;
   };
 
+  // Text-to-speech narration function
+  const narratePlace = (placeName: string, index: number, total: number) => {
+    if (!isNarrationEnabled || narratedPlacesRef.current.has(placeName)) return;
+    
+    narratedPlacesRef.current.add(placeName);
+    
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance();
+      
+      if (index === 0) {
+        utterance.text = `Starting your trip at ${placeName}`;
+      } else if (index === total - 1) {
+        utterance.text = `Arriving at your final destination, ${placeName}`;
+      } else {
+        utterance.text = `Next stop: ${placeName}`;
+      }
+      
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      // Use a clear, friendly voice if available
+      const voices = speechSynthesis.getVoices();
+      const preferredVoice = voices.find(voice => 
+        voice.name.includes('Google') || 
+        voice.name.includes('Samantha') || 
+        voice.name.includes('Karen') ||
+        voice.lang.startsWith('en')
+      );
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+      
+      speechSynthesis.speak(utterance);
+    }
+  };
+
+  // Function to find the nearest place to current position
+  const findNearestPlace = (currentPos: number[]): { place: Place; index: number } | null => {
+    let nearestPlace: { place: Place; index: number } | null = null;
+    let minDistance = Infinity;
+    
+    places.forEach((place, index) => {
+      if (place.latitude && place.longitude) {
+        const distance = Math.sqrt(
+          Math.pow(currentPos[0] - place.longitude, 2) + 
+          Math.pow(currentPos[1] - place.latitude, 2)
+        );
+        
+        if (distance < minDistance && distance < 0.001) { // Within ~100 meters
+          minDistance = distance;
+          nearestPlace = { place, index };
+        }
+      }
+    });
+    
+    return nearestPlace;
+  };
+
   // Function to stop animation
   const stopRouteAnimation = () => {
     setIsAnimating(false);
@@ -372,10 +577,69 @@ export default function App() {
     }
   };
 
+
+  const getDirections = (latitude: string, longitude: string) => {
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+    
+    // Open Google Maps with directions (you can also use Mapbox Directions API)
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    window.open(url, '_blank');
+  };
+
+  // Day/Night mode toggle function
+  const toggleDayNightMode = () => {
+    const map = mapRef.current;
+    if (!map) {
+      console.error('Map not available for style toggle');
+      return;
+    }
+
+    try {
+      const newMode = !isDayMode;
+      const style = newMode 
+        ? 'mapbox://styles/mapbox/streets-v12' // Day mode
+        : 'mapbox://styles/mapbox/navigation-night-v1'; // Night mode
+      
+      console.log(`Switching to ${newMode ? 'day' : 'night'} mode`);
+      map.setStyle(style);
+      setIsDayMode(newMode);
+    } catch (error) {
+      console.error('Error switching map style:', error);
+    }
+  };
+
+  // Make functions available globally for popup buttons
+  useEffect(() => {
+    (window as any).getDirections = getDirections;
+    
+    return () => {
+      delete (window as any).getDirections;
+    };
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopRouteAnimation();
+    };
+  }, []);
+
+  // Handle map style changes and re-add markers
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const handleStyleLoad = () => {
+      console.log('Map style loaded, re-rendering markers');
+      // Force markers to re-render by updating the places array reference
+      setPlaces(currentPlaces => [...currentPlaces]);
+    };
+
+    map.on('styledata', handleStyleLoad);
+
+    return () => {
+      map.off('styledata', handleStyleLoad);
     };
   }, []);
 
@@ -822,9 +1086,105 @@ export default function App() {
                   style={{ background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)' }}
                 />
 
+                {/* Day/Night Toggle - Enhanced Styling */}
+                <div className="absolute top-6 left-6 z-10">
+                  <div className="relative group">
+                    {/* Toggle Switch Container */}
+                    <button 
+                      onClick={toggleDayNightMode}
+                      className="relative flex items-center w-20 h-10 rounded-full transition-all duration-500 transform hover:scale-110 focus:outline-none"
+                      title={isDayMode ? 'Switch to Night Mode' : 'Switch to Day Mode'}
+                      style={{
+                        background: isDayMode 
+                          ? 'linear-gradient(135deg, #ff7e5f, #feb47b, #ffd700)' // Warm sunset gradient for day
+                          : 'linear-gradient(135deg, #667eea, #764ba2, #2c3e50)', // Cool twilight gradient for night
+                        boxShadow: isDayMode
+                          ? '0 6px 25px rgba(255, 126, 95, 0.5), 0 10px 40px rgba(255, 126, 95, 0.3), inset 0 1px 0 rgba(255,255,255,0.3)'
+                          : '0 6px 25px rgba(102, 126, 234, 0.5), 0 10px 40px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)',
+                        border: '3px solid rgba(255, 255, 255, 0.4)',
+                        backdropFilter: 'blur(10px)'
+                      }}
+                      onMouseEnter={(e) => {
+                        const label = e.currentTarget.parentElement?.querySelector('.hover-label') as HTMLElement;
+                        if (label) {
+                          label.style.opacity = '1';
+                          label.style.transform = 'translateX(-50%) translateY(0px)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        const label = e.currentTarget.parentElement?.querySelector('.hover-label') as HTMLElement;
+                        if (label) {
+                          label.style.opacity = '0';
+                          label.style.transform = 'translateX(-50%) translateY(10px)';
+                        }
+                      }}
+                    >
+                      {/* Background Pattern */}
+                      <div className="absolute inset-0 rounded-full opacity-20"
+                        style={{
+                          background: isDayMode
+                            ? 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.8), transparent)'
+                            : 'radial-gradient(circle at 70% 70%, rgba(255,255,255,0.3), transparent)'
+                        }}
+                      />
+                      
+                      {/* Sliding Circle */}
+                      <div 
+                        className="absolute w-8 h-8 rounded-full transition-all duration-500 ease-in-out flex items-center justify-center transform"
+                        style={{
+                          background: 'linear-gradient(145deg, #ffffff, #f8fafc)',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.25), inset 0 2px 0 rgba(255,255,255,0.9), inset 0 -2px 0 rgba(0,0,0,0.1)',
+                          left: isDayMode ? '43px' : '3px',
+                          top: '3px',
+                          transform: `translateX(0) scale(${isDayMode ? '1.15' : '1'})`
+                        }}
+                      >
+                        <span 
+                          className="text-lg transition-all duration-300"
+                          style={{
+                            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))',
+                            transform: `rotate(${isDayMode ? '360deg' : '0deg'})`,
+                            fontSize: '18px'
+                          }}
+                        >
+                          {isDayMode ? '☀️' : '🌙'}
+                        </span>
+                      </div>
+                      
+                      {/* Glow Effect */}
+                      <div 
+                        className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        style={{
+                          background: isDayMode
+                            ? 'radial-gradient(circle, rgba(255,126,95,0.4) 0%, transparent 70%)'
+                            : 'radial-gradient(circle, rgba(102,126,234,0.4) 0%, transparent 70%)',
+                          filter: 'blur(6px)'
+                        }}
+                      />
+                    </button>
+                    
+                    {/* Hover Label */}
+                    <div 
+                      className="hover-label absolute -bottom-10 left-1/2 px-3 py-1 rounded-lg text-xs font-medium transition-all duration-300 pointer-events-none"
+                      style={{
+                        background: 'rgba(0, 0, 0, 0.9)',
+                        color: 'white',
+                        backdropFilter: 'blur(10px)',
+                        whiteSpace: 'nowrap',
+                        opacity: 0,
+                        transform: 'translateX(-50%) translateY(10px)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        zIndex: 1000
+                      }}
+                    >
+                      {isDayMode ? 'Switch to Night Mode' : 'Switch to Day Mode'}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Route Animation Button Overlay */}
                 {places.length >= 2 && (
-                  <div className="absolute top-6 right-12 z-10">
+                  <div className="absolute top-6 right-16 z-10 flex gap-3">
                     <button 
                       onClick={isAnimating ? stopRouteAnimation : startRouteAnimation}
                       className={`py-3 px-6 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg backdrop-blur-sm ${
@@ -837,8 +1197,20 @@ export default function App() {
                       {isAnimating ? (
                         <>🛑 Stop Route</>
                       ) : (
-                        <>🚗 Show Route Animation</>
+                        <>🚗 Trace Route</>
                       )}
+                    </button>
+                    
+                    <button 
+                      onClick={() => setIsNarrationEnabled(!isNarrationEnabled)}
+                      className={`py-3 px-4 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg backdrop-blur-sm ${
+                        isNarrationEnabled 
+                          ? 'bg-green-600/90 hover:bg-green-700/90 text-white' 
+                          : 'bg-gray-600/90 hover:bg-gray-700/90 text-white'
+                      }`}
+                      title={isNarrationEnabled ? 'Disable Voice Narration' : 'Enable Voice Narration'}
+                    >
+                      {isNarrationEnabled ? '🔊' : '🔇'}
                     </button>
                   </div>
                 )}
