@@ -76,6 +76,7 @@ export default function App() {
   const [isNarrationEnabled, setIsNarrationEnabled] = useState(true);
   const narratedPlacesRef = useRef<Set<string>>(new Set());
   const [isDayMode, setIsDayMode] = useState(false); // false = night mode (default)
+  const [isTTSEnabled, setIsTTSEnabled] = useState(true); // Text-to-speech for chatbot responses
 
   // Add CSS for better map readability
   useEffect(() => {
@@ -658,6 +659,46 @@ export default function App() {
     return (bearing + 360) % 360;
   };
 
+  // Text-to-speech for chatbot responses
+  const speakText = (text: string) => {
+    if (!isTTSEnabled || !text.trim()) return;
+    
+    // Stop any currently speaking synthesis
+    if (speechSynthesis.speaking) {
+      speechSynthesis.cancel();
+    }
+    
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Configure voice settings
+      utterance.rate = 0.9; // Slightly slower for clarity
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      // Try to use a high-quality voice
+      const voices = speechSynthesis.getVoices();
+      const preferredVoice = voices.find(voice => 
+        voice.name.includes('Google') || 
+        voice.name.includes('Samantha') || 
+        voice.name.includes('Karen') ||
+        voice.name.includes('Zira') ||
+        (voice.lang.startsWith('en') && voice.localService === false)
+      );
+      
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+      
+      // Add event listeners for debugging
+      utterance.onstart = () => console.log('🔊 TTS started');
+      utterance.onend = () => console.log('🔇 TTS ended');
+      utterance.onerror = (e) => console.error('❌ TTS error:', e);
+      
+      speechSynthesis.speak(utterance);
+    }
+  };
+
   // Text-to-speech narration function
   const narratePlace = (placeName: string, index: number, total: number) => {
     if (!isNarrationEnabled || narratedPlacesRef.current.has(placeName)) return;
@@ -973,6 +1014,10 @@ export default function App() {
         timestamp: new Date() 
       };
       setChatMessages(prev => [...prev, botMessage]);
+      
+      // Speak the bot response
+      speakText(botMessage.message);
+      
       setStatus('');
     } catch (error) {
       const errorMessage = { 
@@ -981,6 +1026,10 @@ export default function App() {
         timestamp: new Date() 
       };
       setChatMessages(prev => [...prev, errorMessage]);
+      
+      // Speak the error message
+      speakText(errorMessage.message);
+      
       setStatus('Error processing request');
     }
   };
