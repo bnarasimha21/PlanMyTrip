@@ -1540,29 +1540,6 @@ export default function App() {
                         </div>
                       )}
                       
-                      {extracted && (
-                        <div className="mt-6 pt-6 border-t border-slate-600">
-                          <div className="bg-gradient-to-r from-emerald-600/20 to-teal-600/20 rounded-xl p-4 border border-emerald-500/30 shadow-sm">
-                            <h4 className="font-semibold text-emerald-400 mb-3 flex items-center gap-2">
-                              📋 Trip Summary
-                            </h4>
-                            <div className="space-y-2 text-sm">
-                              <div className="flex justify-between">
-                                <span className="text-slate-300">Destination:</span>
-                                <span className="text-white font-medium">{extracted.city}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-300">Interests:</span>
-                                <span className="text-white font-medium">{extracted.interests}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-300">Duration:</span>
-                                <span className="text-white font-medium">{extracted.days} {extracted.days === 1 ? 'Day' : 'Days'}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
