@@ -5,3 +5,5 @@ crewai
 streamlit
 pydeck
 requests
+python-dotenv
+google-search-results

@@ -9,28 +9,81 @@ import openai
 import os
 import requests
 from dotenv import load_dotenv
+from serp_utils import search_travel_info, search_places, search_restaurants, search_attractions, search_activities
 
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 MAPBOX_TOKEN = os.getenv("MAPBOX_API_KEY") or os.getenv("MAPBOX_ACCESS_TOKEN")
 
 def fast_get_itinerary(city: str, interests: str, days: int):
-    """Fast itinerary generation using direct OpenAI call"""
+    """Fast itinerary generation using direct OpenAI call with SERP API enhancement"""
     
-    prompt = f"""List 5 {interests} places in {city}. Return JSON:
-{{"places":[{{"name":"Name","neighborhood":"Area","category":"{interests.split(',')[0].strip()}","address":"Address","latitude":null,"longitude":null,"notes":"Brief note"}}]}}
+    print(f"[SERP] Generating itinerary for {city} with interests: {interests}")
+    
+    # Get current information about attractions and places
+    serp_places = []
+    interest_list = [i.strip() for i in interests.lower().split(',')]
+    
+    for interest in interest_list[:3]:  # Limit to first 3 interests for API efficiency
+        print(f"[SERP] Searching for {interest} places in {city}")
+        if 'food' in interest or 'restaurant' in interest or 'dining' in interest:
+            places = search_restaurants(city, interest, 3)
+        elif 'art' in interest or 'museum' in interest or 'culture' in interest:
+            places = search_attractions(city, f"{interest} museum gallery", 3)
+        elif 'shop' in interest or 'market' in interest:
+            places = search_activities(city, f"{interest} shopping market", 3)
+        else:
+            places = search_attractions(city, interest, 3)
+        
+        serp_places.extend(places)
+    
+    # Also get general attractions for the city
+    general_attractions = search_attractions(city, "top attractions must visit", 4)
+    serp_places.extend(general_attractions)
+    
+    print(f"[SERP] Found {len(serp_places)} places from search")
+    
+    # Format SERP results for the prompt
+    serp_context = ""
+    if serp_places:
+        serp_context = "CURRENT SEARCH RESULTS FROM SERP API:\n"
+        for i, place in enumerate(serp_places[:10], 1):  # Limit to top 10
+            place_info = f"{i}. {place.get('name', 'Unknown')}"
+            if place.get('address'):
+                place_info += f" - {place.get('address')}"
+            if place.get('description'):
+                place_info += f" - {place.get('description')[:100]}..."
+            if place.get('rating'):
+                place_info += f" (Rating: {place.get('rating')})"
+            serp_context += place_info + "\n"
+        serp_context += "\n"
+    
+    prompt = f"""Create a {days}-day travel itinerary for {city} focusing on {interests}.
 
-Real places only."""
+{serp_context}Use the search results above as a reference for current, popular places to include in the itinerary. Prioritize places with good ratings and detailed information.
+
+Return ONLY a valid JSON object with this structure:
+{{"places":[{{"name":"Name","neighborhood":"Area","category":"food/art/culture/shopping/sightseeing","address":"Address","latitude":null,"longitude":null,"notes":"Brief note"}}]}}
+
+Requirements:
+- Include {max(5, days * 2)} diverse places that match the interests
+- Prioritize places from the search results when they match the interests
+- Mix of popular attractions and local gems
+- Include specific addresses where possible
+- Categorize each place appropriately (food, art, culture, shopping, sightseeing)
+- Provide helpful notes for each place
+- Focus on places that are currently open and accessible
+- Real places only, NO markdown formatting, just pure JSON"""
 
     try:
         completion = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a travel expert. Return only valid JSON."},
+                {"role": "system", "content": "You are a travel expert. Return only valid JSON with real, current places."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.5,
-            max_tokens=600
+            max_tokens=800
         )
         
         response = completion.choices[0].message.content.strip()
@@ -78,8 +131,83 @@ Real places only."""
             "raw_research_text": None
         }
 
-def fast_handle_question(city: str, interests: str, days: int, user_question: str):
-    """Fast question handling using direct OpenAI call"""
+def classify_user_intent(user_input: str, context: str = None) -> str:
+    """
+    Use OpenAI to classify whether user input is a question or modification request
+    Returns: 'question' or 'modification'
+    """
+    
+    prompt = f"""Classify the following user input as either a "question" or a "modification" request for a travel itinerary.
+
+USER INPUT: "{user_input}"
+
+CONTEXT: {context or "User is planning a trip and has an existing itinerary."}
+
+CLASSIFICATION RULES:
+- "question": User is asking for information, advice, recommendations, explanations, or seeking help. This includes questions about availability, possibilities, or general inquiries.
+  Examples: "What's the best time to visit?", "How far is X from Y?", "Which place is better?", "What should I know about X?", "Can I get a scooter rental?", "Is there a good restaurant nearby?", "Where can I find X?"
+  
+- "modification": User is giving a direct command or explicit request to change, add, remove, or replace something in their itinerary. Look for imperative verbs and direct instructions.
+  Examples: "Add a restaurant", "Remove the museum", "Replace X with Y", "Include more shopping places", "Put in a scooter rental", "Take out expensive places"
+
+Respond with ONLY one word: "question" or "modification"."""
+
+    try:
+        completion = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a precise intent classifier for travel planning. 'question' = asking for information/availability. 'modification' = direct command to change itinerary. Questions about 'can I', 'where can I', 'is there' are ALWAYS questions, not modifications. Respond with only 'question' or 'modification'."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.1,  # Low temperature for consistent classification
+            max_tokens=10
+        )
+        
+        result = completion.choices[0].message.content.strip().lower()
+        
+        # Debug logging
+        print(f"[CLASSIFIER] Input: '{user_input}' -> Raw response: '{result}'")
+        
+        # Ensure we only get valid responses
+        if result in ['question', 'modification']:
+            print(f"[CLASSIFIER] Final classification: {result}")
+            return result
+        else:
+            # Default to question if unclear
+            print(f"[CLASSIFIER] Invalid response '{result}', defaulting to 'question'")
+            return 'question'
+            
+    except Exception as e:
+        print(f"Classification error: {e}")
+        # Default to question on error
+        return 'question'
+
+def test_classifier():
+    """Test function to verify classifier works correctly"""
+    test_cases = [
+        ("can I get a scooter rental in hanoi", "question"),
+        ("add a scooter rental", "modification"),
+        ("where can I find good pho", "question"),
+        ("include a pho restaurant", "modification"),
+        ("is there a night market", "question"),
+        ("put in a night market", "modification"),
+        ("what's the best route", "question"),
+        ("remove the museum", "modification")
+    ]
+    
+    print("\n=== TESTING CLASSIFIER ===")
+    for input_text, expected in test_cases:
+        result = classify_user_intent(input_text, "User planning trip to Hanoi")
+        status = "✓" if result == expected else "✗"
+        print(f"{status} '{input_text}' -> {result} (expected: {expected})")
+    print("=== END TEST ===\n")
+
+def fast_handle_question(city: str, interests: str, days: int, user_question: str, 
+                        original_request: str = None, current_places: list = None, 
+                        chat_history: list = None):
+    """Enhanced question handling with brief responses using SERP API"""
+    
+    print(f"[DEBUG] Question function called: {user_question}")
     
     if not user_question or not user_question.strip():
         return {
@@ -87,20 +215,38 @@ def fast_handle_question(city: str, interests: str, days: int, user_question: st
             "response": "Please ask me a question about your travel plans."
         }
     
-    prompt = f"""{user_question} - Context: User is planning a travel to {city}, for {interests}, for {days} days. Be concise."""
+    # Get brief info from SERP API (first 100 chars only)
+    serp_info = search_travel_info(user_question, city)[:100]
+    
+    # Create very short context
+    context = f"Trip: {city}, {interests}"
+    if current_places and len(current_places) > 0:
+        context += f", Current places: {len(current_places)}"
+    
+    prompt = f"""{context}
+
+Question: {user_question}
+
+Context: {serp_info}
+
+Give a direct 1-sentence answer (max 20 words):"""
 
     try:
         completion = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful travel assistant. Provide concise, practical answers."},
+                {"role": "system", "content": "Answer travel questions in exactly 1 sentence. Maximum 20 words. Be direct and helpful."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.5,
-            max_tokens=250
+            temperature=0.1,
+            max_tokens=40
         )
         
         response = completion.choices[0].message.content.strip()
+        
+        # Ensure response ends with period if it doesn't
+        if response and not response.endswith('.'):
+            response += '.'
         
         return {
             "type": "answer",
@@ -108,14 +254,22 @@ def fast_handle_question(city: str, interests: str, days: int, user_question: st
         }
         
     except Exception as e:
-        print(f"Fast question error: {e}")
-        return {
-            "type": "answer",
-            "response": "I'm having trouble answering that question right now. Please try again."
-        }
+        print(f"[ERROR] Question error: {type(e).__name__}: {e}")
+        # Try a simple fallback response
+        try:
+            simple_response = f"Check {city} travel guides for {user_question.replace('?', '').lower()}."
+            return {
+                "type": "answer", 
+                "response": simple_response
+            }
+        except:
+            return {
+                "type": "answer",
+                "response": f"You can find that in {city}. Check local recommendations."
+            }
 
 def fast_handle_modification(city: str, interests: str, days: int, existing_places: list, modification_request: str):
-    """Fast modification handling using direct OpenAI call"""
+    """Fast modification handling using direct OpenAI call with SERP API enhancement"""
     
     if not modification_request or not modification_request.strip():
         return {
@@ -127,6 +281,40 @@ def fast_handle_modification(city: str, interests: str, days: int, existing_plac
             "response": "No changes requested."
         }
     
+    # Get relevant places from SERP API based on the modification request
+    print(f"[SERP] Searching for modification request: {modification_request} in {city}")
+    
+    # Extract what the user is looking for from their request
+    search_query = modification_request
+    serp_places = search_places(search_query, city, 5)
+    
+    # If it's a specific type request, try more targeted searches
+    if any(word in modification_request.lower() for word in ['restaurant', 'food', 'eat', 'dining']):
+        serp_places.extend(search_restaurants(city, modification_request, 3))
+    elif any(word in modification_request.lower() for word in ['museum', 'art', 'culture', 'gallery']):
+        serp_places.extend(search_attractions(city, modification_request, 3))
+    elif any(word in modification_request.lower() for word in ['shop', 'market', 'mall']):
+        serp_places.extend(search_activities(city, modification_request, 3))
+    else:
+        serp_places.extend(search_attractions(city, modification_request, 3))
+    
+    print(f"[SERP] Found {len(serp_places)} relevant places for modification")
+    
+    # Format SERP results for the prompt
+    serp_context = ""
+    if serp_places:
+        serp_context = "CURRENT SEARCH RESULTS FOR MODIFICATION:\n"
+        for i, place in enumerate(serp_places[:8], 1):  # Limit to top 8
+            place_info = f"{i}. {place.get('name', 'Unknown')}"
+            if place.get('address'):
+                place_info += f" - {place.get('address')}"
+            if place.get('description'):
+                place_info += f" - {place.get('description')[:80]}..."
+            if place.get('rating'):
+                place_info += f" (Rating: {place.get('rating')})"
+            serp_context += place_info + "\n"
+        serp_context += "\n"
+    
     places_json = json.dumps(existing_places or [], indent=2)
     
     prompt = f"""You are modifying a travel itinerary. Here's the current situation:
@@ -134,7 +322,9 @@ def fast_handle_modification(city: str, interests: str, days: int, existing_plac
 City: {city}
 Current Places: {places_json}
 
-User Request: "{modification_request}"
+{serp_context}User Request: "{modification_request}"
+
+Use the search results above when adding new places. Prioritize places with good ratings and detailed information.
 
 CRITICAL INSTRUCTIONS - READ CAREFULLY:
 

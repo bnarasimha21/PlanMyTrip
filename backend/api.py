@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
 
-from fast_agents import fast_extract_trip_request, fast_get_itinerary, fast_handle_question, fast_handle_modification
+from fast_agents import fast_extract_trip_request, fast_get_itinerary, fast_handle_question, fast_handle_modification, classify_user_intent, test_classifier
 
 
 app = FastAPI(title="LetMePlanMyTrip API", version="0.1.0")
@@ -44,6 +44,8 @@ class ModifyRequest(BaseModel):
     days: int
     places: List[Place]
     instruction: str
+    original_request: Optional[str] = None
+    chat_history: Optional[List[Dict[str, Any]]] = None
 
 @app.get("/")
 def home() -> Dict[str, Any]:
@@ -77,20 +79,28 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
 
 @app.post("/modify")
 def modify(req: ModifyRequest) -> Dict[str, Any]:
+    print(f"\n=== /modify endpoint called ===")
+    print(f"Instruction: '{req.instruction}'")
+    print(f"City: {req.city}, Days: {req.days}")
+    
     places_dicts = [p.model_dump() for p in req.places]
+    print(f"Number of existing places: {len(places_dicts)}")
     
-    # Determine if this is a question or modification request
-    instruction = req.instruction.lower().strip()
+    # Use AI to intelligently classify the user's intent
+    context = f"User is planning a {req.days}-day trip to {req.city} with interests in {req.interests}. "
+    if places_dicts:
+        place_names = [p.get('name', 'Unknown') for p in places_dicts[:5]]  # First 5 places for context
+        context += f"Current itinerary includes: {', '.join(place_names)}."
+    else:
+        context += "No places in itinerary yet."
     
-    # Question indicators
-    question_words = ['what', 'how', 'where', 'when', 'why', 'which', 'who']
-    question_phrases = ['best route', 'how far', 'distance', 'recommend', 'suggest', 'advice']
+    print(f"About to call classify_user_intent...")
+    user_intent = classify_user_intent(req.instruction, context)
+    print(f"classify_user_intent returned: '{user_intent}'")
+    is_question = (user_intent == 'question')
     
-    is_question = (
-        instruction.endswith('?') or
-        any(instruction.startswith(word) for word in question_words) or
-        any(phrase in instruction for phrase in question_phrases)
-    )
+    # Log classification for debugging
+    print(f"User input: '{req.instruction}' -> Classified as: '{user_intent}'")
     
     if is_question:
         # Handle as question - no places modification
@@ -99,7 +109,14 @@ def modify(req: ModifyRequest) -> Dict[str, Any]:
             interests=req.interests,
             days=req.days,
             user_question=req.instruction,
+            original_request=req.original_request,
+            current_places=places_dicts,
+            chat_history=req.chat_history,
         )
+        
+        # Log the response for debugging
+        print(f"[API DEBUG] Response received: {response.get('response', 'NO RESPONSE')[:100]}...")
+        
         # Add places for consistency with frontend expectations
         response["city"] = req.city
         response["interests"] = req.interests
@@ -116,6 +133,16 @@ def modify(req: ModifyRequest) -> Dict[str, Any]:
         )
     
     return response
+
+
+@app.get("/test-classifier")
+def test_classification() -> Dict[str, Any]:
+    """Test endpoint to verify classifier is working correctly"""
+    try:
+        test_classifier()
+        return {"status": "success", "message": "Check console output for test results"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 if __name__ == "__main__":

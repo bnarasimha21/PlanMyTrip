@@ -43,7 +43,7 @@ const POPUP_STYLES = `
 </style>`;
 
 export default function App() {
-  const [tripRequest, setTripRequest] = useState('Plan a 1-day must see places in Bangalore');
+  const [tripRequest, setTripRequest] = useState('Plan a 1-day must see places in Hanoi');
   const [extracted, setExtracted] = useState<{ city: string; interests: string; days: number } | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [status, setStatus] = useState('');
@@ -776,7 +776,13 @@ export default function App() {
           interests: extracted.interests, 
           days: extracted.days, 
           places, 
-          instruction: currentInput 
+          instruction: currentInput,
+          original_request: tripRequest, // Pass the original trip request
+          chat_history: chatMessages.map(msg => ({ 
+            type: msg.type, 
+            message: msg.message,
+            timestamp: msg.timestamp.toISOString()
+          })) // Pass chat history
         }),
       });
       const data = await resp.json();
