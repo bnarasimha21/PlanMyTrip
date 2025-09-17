@@ -1093,7 +1093,7 @@ export default function App() {
 
             <div className="flex h-[calc(100vh-120px)]">
               {/* Sidebar */}
-              <div className="w-[640px] bg-slate-900/95 backdrop-blur-xl border-r border-slate-600 overflow-hidden flex flex-col shadow-lg">
+              <div className="w-[520px] bg-slate-900/95 backdrop-blur-xl border-r border-slate-600 overflow-hidden flex flex-col shadow-lg">
           <div className="p-6 space-y-6 flex-shrink-0">
             {/* Trip Request Section with Voice Input */}
             <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl border border-slate-600 shadow-lg">
@@ -1495,7 +1495,7 @@ export default function App() {
 
               {/* Right Sidebar - Itinerary */}
               {(hasGeneratedItinerary || places.length > 0) && (
-                <div className="w-[640px] bg-slate-900/95 backdrop-blur-xl border-l border-slate-600 overflow-y-auto shadow-lg">
+                <div className="w-[520px] bg-slate-900/95 backdrop-blur-xl border-l border-slate-600 overflow-y-auto shadow-lg">
                   <div className="p-6">
                     <div className="bg-slate-800/80 rounded-2xl p-6 border border-slate-600 shadow-lg">
                       <h3 className="text-xl font-semibold mb-6 flex items-center gap-3 text-white">
