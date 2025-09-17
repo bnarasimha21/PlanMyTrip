@@ -197,6 +197,7 @@ export default function App() {
       const ART_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="%23FF1493" stroke="%23FFFFFF" stroke-width="2"/><path d="M12 6c3.866 0 7 2.582 7 5.769 0 1.279-1.037 2.231-2.24 2.231h-1.042c-.666 0-1.074.706-.766 1.298.196.377.048.84-.327 1.051A4.5 4.5 0 0112 17.5C8.134 17.5 5 14.918 5 11.731 5 8.582 8.134 6 12 6zm-3.75 5.25a.75.75 0 100-1.5.75.75 0 000 1.5zm3-1.5a.75.75 0 100-1.5.75.75 0 000 1.5zm3 1.5a.75.75 0 100-1.5.75.75 0 000 1.5z" fill="white"/></svg>';
       const SIGHTSEEING_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="%237C3AED" stroke="%23FFFFFF" stroke-width="2"/><path d="M6 20h12v-2H6v2zm6-16L8 8v4h8V8l-4-4zm-1 6V8.5l1-1 1 1V10h-2z" fill="white"/><rect x="10" y="14" width="4" height="2" fill="white"/><circle cx="12" cy="6" r="1" fill="white"/></svg>';
       const DEFAULT_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="%2300CED1" stroke="%23FFFFFF" stroke-width="2"/><path d="M12 8l4 8H8l4-8z" fill="white"/></svg>';
+      // Build a labeled marker element (icon + name)
       const img = document.createElement('img');
       img.src = cat.includes('food') ? FOOD_ICON : 
                 cat.includes('art') ? ART_ICON : 
@@ -215,6 +216,28 @@ export default function App() {
       img.addEventListener('mouseleave', () => {
         img.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))';
       });
+
+      const label = document.createElement('span');
+      label.textContent = p.name;
+      label.style.fontSize = '12px';
+      label.style.lineHeight = '1';
+      label.style.whiteSpace = 'nowrap';
+      label.style.color = 'white';
+      label.style.background = 'rgba(0,0,0,0.55)';
+      label.style.padding = '4px 8px';
+      label.style.borderRadius = '8px';
+      label.style.border = '1px solid rgba(255,255,255,0.15)';
+      label.style.boxShadow = '0 2px 6px rgba(0,0,0,0.25)';
+      label.style.userSelect = 'none';
+      label.style.pointerEvents = 'none';
+
+      const container = document.createElement('div');
+      container.style.display = 'flex';
+      container.style.alignItems = 'center';
+      container.style.gap = '8px';
+      container.style.transform = 'translateY(-6px)';
+      container.appendChild(img);
+      container.appendChild(label);
       // Create rich popup with enhanced content
       const createRichPopup = (place: Place) => {
         const category = (place.category || '').toLowerCase();
@@ -334,7 +357,7 @@ export default function App() {
 
       try {
         console.log('🔨 Creating marker for:', p.name);
-        const marker = new mapboxgl.Marker({ element: img, anchor: 'bottom' })
+        const marker = new mapboxgl.Marker({ element: container, anchor: 'bottom' })
           .setLngLat([p.longitude!, p.latitude!])
           .setPopup(createRichPopup(p))
           .addTo(map);
