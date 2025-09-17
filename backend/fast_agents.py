@@ -105,13 +105,47 @@ Requirements:
             # Fallback: create simple places from text
             places = []
             
-        # Skip geocoding for now - will be done asynchronously by frontend or cached later
-        # This saves 10-15 seconds per request
-        for place in places:
-            if place.get("latitude") is None:
-                place["latitude"] = None
-            if place.get("longitude") is None:
-                place["longitude"] = None
+        # Geocode missing coordinates so markers render on the map
+        print(f"[GEOCODING] Starting geocoding. MAPBOX_TOKEN exists: {bool(MAPBOX_TOKEN)}, MAPBOX_TOKEN value: {MAPBOX_TOKEN[:10] if MAPBOX_TOKEN else 'None'}..., Places count: {len(places)}")
+        if MAPBOX_TOKEN and places:
+            for place in places:
+                if place.get("latitude") is not None and place.get("longitude") is not None:
+                    print(f"[GEOCODING] Skipping {place.get('name')} - already has coordinates")
+                    continue
+                place_name = place.get("name")
+                address = place.get("address")
+                query_parts = [place_name, address, city]
+                query = ", ".join([q for q in query_parts if q])
+                print(f"[GEOCODING] Geocoding '{place_name}' with query: '{query}'")
+                try:
+                    url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{requests.utils.quote(query)}.json"
+                    print(f"[GEOCODING] Making request to: {url[:100]}...")
+                    resp = requests.get(url, params={"access_token": MAPBOX_TOKEN, "limit": 1}, timeout=10)
+                    print(f"[GEOCODING] Response status: {resp.status_code}")
+                    if resp.ok:
+                        features = resp.json().get("features", [])
+                        print(f"[GEOCODING] Found {len(features)} features")
+                        if features:
+                            longitude, latitude = features[0]["center"]
+                            place["latitude"] = latitude
+                            place["longitude"] = longitude
+                            print(f"[GEOCODING] ✅ Set coordinates for {place_name}: {latitude}, {longitude}")
+                            if not place.get("address"):
+                                place["address"] = features[0].get("place_name")
+                        else:
+                            print(f"[GEOCODING] ❌ No features found for {place_name}")
+                            place["latitude"] = None
+                            place["longitude"] = None
+                    else:
+                        print(f"[GEOCODING] ❌ Request failed for {place_name}: {resp.text[:200]}")
+                        place["latitude"] = None
+                        place["longitude"] = None
+                except Exception as e:
+                    print(f"[GEOCODING] ❌ Exception for {place_name}: {e}")
+                    place["latitude"] = None
+                    place["longitude"] = None
+        else:
+            print(f"[GEOCODING] Skipping geocoding - MAPBOX_TOKEN: {bool(MAPBOX_TOKEN)}, places: {len(places) if places else 0}")
         
         return {
             "city": city,
@@ -281,29 +315,43 @@ def fast_handle_modification(city: str, interests: str, days: int, existing_plac
             "response": "No changes requested."
         }
     
-    # Get relevant places from SERP API based on the modification request
-    print(f"[SERP] Searching for modification request: {modification_request} in {city}")
+    # Check if this is an "add" request vs other modifications
+    is_add_request = any(word in modification_request.lower() for word in ['add', 'include', 'put in', 'insert', 'append'])
     
-    # Extract what the user is looking for from their request
-    search_query = modification_request
-    serp_places = search_places(search_query, city, 5)
-    
-    # If it's a specific type request, try more targeted searches
-    if any(word in modification_request.lower() for word in ['restaurant', 'food', 'eat', 'dining']):
-        serp_places.extend(search_restaurants(city, modification_request, 3))
-    elif any(word in modification_request.lower() for word in ['museum', 'art', 'culture', 'gallery']):
-        serp_places.extend(search_attractions(city, modification_request, 3))
-    elif any(word in modification_request.lower() for word in ['shop', 'market', 'mall']):
-        serp_places.extend(search_activities(city, modification_request, 3))
+    # Get relevant places from SERP API with location priority
+    if is_add_request:
+        print(f"[SERP] Searching for ADD request: {modification_request} specifically in {city}")
+        # Simple approach: let SERP API and prompt handle location filtering
+        
+        # For add requests, be very specific about location
+        search_query = f"{modification_request} in {city}"
+        serp_places = search_places(search_query, city, 5)
+        
+        # Enhanced targeted searches with city enforcement
+        if any(word in modification_request.lower() for word in ['restaurant', 'food', 'eat', 'dining']):
+            serp_places.extend(search_restaurants(city, modification_request, 3))
+        elif any(word in modification_request.lower() for word in ['museum', 'art', 'culture', 'gallery']):
+            serp_places.extend(search_attractions(city, f"{modification_request} museum gallery", 3))
+        elif any(word in modification_request.lower() for word in ['shop', 'market', 'mall']):
+            serp_places.extend(search_activities(city, f"{modification_request} shopping market", 3))
+        else:
+            serp_places.extend(search_attractions(city, modification_request, 3))
     else:
-        serp_places.extend(search_attractions(city, modification_request, 3))
+        print(f"[SERP] Searching for MODIFY request: {modification_request} in {city}")
+        # For other modifications (remove, replace), less strict location filtering
+        search_query = modification_request
+        serp_places = search_places(search_query, city, 3)
     
     print(f"[SERP] Found {len(serp_places)} relevant places for modification")
     
-    # Format SERP results for the prompt
+    # Format SERP results for the prompt with location emphasis
     serp_context = ""
     if serp_places:
-        serp_context = "CURRENT SEARCH RESULTS FOR MODIFICATION:\n"
+        if is_add_request:
+            serp_context = f"CURRENT SEARCH RESULTS FOR NEW PLACES IN {city.upper()}:\n"
+        else:
+            serp_context = "CURRENT SEARCH RESULTS FOR MODIFICATION:\n"
+        
         for i, place in enumerate(serp_places[:8], 1):  # Limit to top 8
             place_info = f"{i}. {place.get('name', 'Unknown')}"
             if place.get('address'):
@@ -317,14 +365,36 @@ def fast_handle_modification(city: str, interests: str, days: int, existing_plac
     
     places_json = json.dumps(existing_places or [], indent=2)
     
-    prompt = f"""You are modifying a travel itinerary. Here's the current situation:
+    # Enhanced prompt based on request type
+    if is_add_request:
+        location_constraint = f"""
+LOCATION CONSTRAINT - EXTREMELY IMPORTANT:
+- You are planning a trip to {city}
+- ALL new places MUST be located in {city} specifically
+- DO NOT add places from other cities, even if they seem relevant
+- If the search results don't show places clearly in {city}, respond with an error
+- Verify each place is actually in {city} before adding it"""
+        
+        prompt = f"""You are modifying a travel itinerary for {city}. Here's the current situation:
+
+City: {city}
+Current Places: {places_json}
+
+{serp_context}User Request: "{modification_request}"
+{location_constraint}
+
+Use ONLY the search results above when adding new places. Prioritize places with good ratings that are clearly located in {city}.
+
+CRITICAL INSTRUCTIONS - READ CAREFULLY:"""
+    else:
+        prompt = f"""You are modifying a travel itinerary. Here's the current situation:
 
 City: {city}
 Current Places: {places_json}
 
 {serp_context}User Request: "{modification_request}"
 
-Use the search results above when adding new places. Prioritize places with good ratings and detailed information.
+Use the search results above when modifying places. Prioritize places with good ratings and detailed information.
 
 CRITICAL INSTRUCTIONS - READ CAREFULLY:
 
@@ -343,10 +413,10 @@ CRITICAL INSTRUCTIONS - READ CAREFULLY:
    - Only replace when explicitly told to "replace X with Y"
 
 5. EXAMPLES:
-   - "Add UB City to the list" → Keep ALL existing places + add UB City
-   - "Include Central Mall" → Keep ALL existing places + add Central Mall
-   - "Remove Place A" → Keep all places except Place A
-   - "Replace Place A with Place B" → Keep all places but change Place A to Place B
+   - "Add UB City to the list" -> Keep ALL existing places + add UB City
+   - "Include Central Mall" -> Keep ALL existing places + add Central Mall
+   - "Remove Place A" -> Keep all places except Place A
+   - "Replace Place A with Place B" -> Keep all places but change Place A to Place B
 
 Current places count: {len(existing_places or [])}
 You must return AT LEAST this many places unless explicitly asked to remove some.

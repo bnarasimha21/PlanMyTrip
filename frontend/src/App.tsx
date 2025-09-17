@@ -19,7 +19,7 @@ interface Place {
   notes?: string;
 }
 
-// Add custom styles for rich popups
+// Add custom styles for rich popups and better map readability
 const POPUP_STYLES = `
 <style>
 .rich-popup .mapboxgl-popup-content {
@@ -39,6 +39,16 @@ const POPUP_STYLES = `
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Improve map text readability */
+.mapboxgl-map {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Make map labels larger and more readable */
+.mapboxgl-map .mapboxgl-ctrl-geocoder input {
+  font-size: 16px !important;
 }
 </style>`;
 
@@ -67,57 +77,119 @@ export default function App() {
   const narratedPlacesRef = useRef<Set<string>>(new Set());
   const [isDayMode, setIsDayMode] = useState(false); // false = night mode (default)
 
+  // Add CSS for better map readability
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      /* Improve Mapbox map text readability */
+      .mapboxgl-map {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      }
+      
+      /* Make street labels larger and more readable */
+      .mapboxgl-map .mapboxgl-marker {
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)) !important;
+      }
+      
+      /* Improve navigation controls */
+      .mapboxgl-ctrl-group {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+        border-radius: 8px !important;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   // Init Map
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
+    console.log('🗺️ Initializing map. MAPBOX_TOKEN:', MAPBOX_TOKEN ? `${MAPBOX_TOKEN.substring(0, 10)}...` : 'NOT SET');
     if (!MAPBOX_TOKEN || MAPBOX_TOKEN === 'your_mapbox_token_here') {
+      console.error('❌ Mapbox token is not set or invalid');
       setStatus('Please set a valid VITE_MAPBOX_TOKEN in frontend/.env file');
       return;
     }
-    mapRef.current = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/navigation-night-v1',
-      center: [77.5946, 12.9716],
-      zoom: 11,
-    });
-    mapRef.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    
+    try {
+      console.log('🌍 Creating Mapbox map instance...');
+      mapRef.current = new mapboxgl.Map({
+        container: mapContainerRef.current,
+        style: isDayMode ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/streets-v12',
+        center: [77.5946, 12.9716],
+        zoom: 11,
+        attributionControl: false // Reduce clutter
+      });
+      
+      mapRef.current.on('load', () => {
+        console.log('✅ Map loaded successfully');
+      });
+      
+      mapRef.current.on('error', (e) => {
+        console.error('❌ Map error:', e);
+        setStatus('Map failed to load. Trying alternative style...');
+        
+        // Try fallback to basic streets style
+        setTimeout(() => {
+          if (mapRef.current) {
+            try {
+              console.log('🔄 Trying fallback map style...');
+              mapRef.current.setStyle('mapbox://styles/mapbox/streets-v11');
+            } catch (fallbackError) {
+              console.error('❌ Fallback also failed:', fallbackError);
+              setStatus('Unable to load map. Please refresh the page.');
+            }
+          }
+        }, 1000);
+      });
+      
+      mapRef.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      console.log('🎮 Added navigation controls');
+    } catch (error) {
+      console.error('❌ Error creating map:', error);
+      setStatus('Error initializing map');
+    }
   }, []);
 
   // Render markers
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-
-
-    // Remove any existing markers
-    (window as any).__markers?.forEach((m: mapboxgl.Marker) => m.remove());
-
-    const markers: mapboxgl.Marker[] = [];
-    if (places.length > 0) {
-      // Calculate bounds to fit all markers
-      const validPlaces = places.filter(p => p.latitude != null && p.longitude != null);
-      if (validPlaces.length > 0) {
-        const lats = validPlaces.map(p => p.latitude!);
-        const lons = validPlaces.map(p => p.longitude!);
-        
-        const minLat = Math.min(...lats);
-        const maxLat = Math.max(...lats);
-        const minLon = Math.min(...lons);
-        const maxLon = Math.max(...lons);
-        
-        // Create bounds with padding
-        const bounds = new mapboxgl.LngLatBounds([minLon, minLat], [maxLon, maxLat]);
-        
-        // Fit map to bounds with padding
-        map.fitBounds(bounds, {
-          padding: { top: 50, bottom: 50, left: 50, right: 50 },
-          maxZoom: 15 // Prevent zooming in too much for close markers
-        });
-      }
+    if (!map) {
+      console.log('❌ Map not ready yet');
+      return;
     }
 
-    places.forEach((p) => {
-      if (p.latitude == null || p.longitude == null) return;
+    console.log('🗺️ Rendering markers for places:', places.length, places);
+    console.log('🔍 Full places data:', JSON.stringify(places, null, 2));
+
+    // Remove any existing markers
+    const existingMarkers = (window as any).__markers || [];
+    console.log('🧹 Removing', existingMarkers.length, 'existing markers');
+    existingMarkers.forEach((m: mapboxgl.Marker) => {
+      try {
+        m.remove();
+      } catch (e) {
+        console.warn('Failed to remove marker:', e);
+      }
+    });
+
+    const markers: mapboxgl.Marker[] = [];
+    let validPlaces: Place[] = [];
+
+    places.forEach((p, index) => {
+      console.log(`📍 Processing place ${index + 1}/${places.length}:`, p.name);
+      console.log(`   - Coordinates: ${p.latitude}, ${p.longitude}`);
+      console.log(`   - Category: ${p.category}`);
+      
+      if (p.latitude == null || p.longitude == null) {
+        console.log('⚠️ Skipping place without coordinates:', p.name, 'lat:', p.latitude, 'lng:', p.longitude);
+        return;
+      }
+      console.log('✅ Will add marker for:', p.name, 'at', p.latitude, p.longitude);
+      validPlaces.push(p);
       const cat = (p.category || '').toLowerCase();
       // More prominent icons with bright colors that contrast with dark map
       const FOOD_ICON = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="%23FF6B35" stroke="%23FFFFFF" stroke-width="2"/><path d="M8 6c.414 0 .75.336.75.75V12h.5V6.75a.75.75 0 011.5 0V12h.5V6.75a.75.75 0 011.5 0V13a2 2 0 01-2 2h-1a2 2 0 01-2-2V6.75c0-.414.336-.75.75-.75zM15 6a.75.75 0 01.75.75V12h1.25a.75.75 0 010 1.5H15.75V19a.75.75 0 01-1.5 0V6.75c0-.414.336-.75.75-.75z" fill="white"/></svg>';
@@ -259,14 +331,105 @@ export default function App() {
         `);
       };
 
-      const marker = new mapboxgl.Marker({ element: img, anchor: 'bottom' })
-        .setLngLat([p.longitude!, p.latitude!])
-        .setPopup(createRichPopup(p))
-        .addTo(map);
-      markers.push(marker);
+      try {
+        console.log('🔨 Creating marker for:', p.name);
+        const marker = new mapboxgl.Marker({ element: img, anchor: 'bottom' })
+          .setLngLat([p.longitude!, p.latitude!])
+          .setPopup(createRichPopup(p))
+          .addTo(map);
+        markers.push(marker);
+        console.log('🎯 Marker added successfully for:', p.name, '- Total markers now:', markers.length);
+      } catch (error) {
+        console.error('❌ Failed to create marker for:', p.name, error);
+      }
     });
 
     (window as any).__markers = markers;
+    
+    console.log('📊 Marker creation summary:');
+    console.log(`   - Total places: ${places.length}`);
+    console.log(`   - Valid places with coordinates: ${validPlaces.length}`);
+    console.log(`   - Markers created: ${markers.length}`);
+    console.log(`   - Missing markers: ${places.length - markers.length}`);
+
+    // Fit map to bounds after all markers are created
+    if (validPlaces.length > 0) {
+      console.log('📍 Valid places with coordinates:', validPlaces.length, validPlaces);
+      const lats = validPlaces.map(p => p.latitude!);
+      const lons = validPlaces.map(p => p.longitude!);
+      
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLon = Math.min(...lons);
+      const maxLon = Math.max(...lons);
+      
+      console.log('🗺️ Calculated bounds:', { minLat, maxLat, minLon, maxLon });
+      
+      // Create bounds and add extra padding for better visibility
+      const bounds = new mapboxgl.LngLatBounds([minLon, minLat], [maxLon, maxLat]);
+      
+      // Calculate dynamic padding based on marker spread
+      const latRange = maxLat - minLat;
+      const lonRange = maxLon - minLon;
+      const maxRange = Math.max(latRange, lonRange);
+      
+      console.log('📏 Marker spread:', { latRange, lonRange, maxRange });
+      
+      // Add minimal padding for very close or single places
+      if (validPlaces.length === 1 || maxRange < 0.005) {
+        const padding = 0.008; // About 800m padding for single places
+        bounds.extend([minLon - padding, minLat - padding]);
+        bounds.extend([maxLon + padding, maxLat + padding]);
+        console.log('🔍 Applied minimal padding for single/close places');
+      } else if (maxRange < 0.02) {
+        // For moderately spread places, add small padding
+        const padding = maxRange * 0.3; // 30% of current spread
+        bounds.extend([minLon - padding, minLat - padding]);
+        bounds.extend([maxLon + padding, maxLat + padding]);
+        console.log('🔍 Applied moderate padding for medium spread');
+      }
+      
+      console.log('🎯 Fitting map to bounds:', bounds);
+      
+      // Calculate dynamic padding and zoom based on marker distribution and spread
+      let dynamicPadding: number;
+      let maxZoom: number;
+      
+      if (maxRange < 0.005) {
+        // Very close markers (same neighborhood) - zoom in to show street detail
+        dynamicPadding = 30;
+        maxZoom = 16;
+      } else if (maxRange < 0.02) {
+        // Close markers (same district) - zoom in to show local streets
+        dynamicPadding = 35;
+        maxZoom = 15;
+      } else if (maxRange < 0.05) {
+        // Medium spread (across city districts) - moderate zoom for area detail
+        dynamicPadding = 40;
+        maxZoom = 14;
+      } else {
+        // Wide spread (across city) - still show good detail
+        dynamicPadding = 50;
+        maxZoom = 13;
+      }
+      
+      // Adjust for number of markers - single markers can zoom in more
+      if (validPlaces.length === 1) {
+        maxZoom = Math.min(maxZoom + 1, 17); // Allow higher zoom for single markers
+        dynamicPadding = Math.max(dynamicPadding - 10, 20);
+      }
+      
+      console.log('⚙️ Using dynamic padding:', dynamicPadding, 'maxZoom:', maxZoom, 'for range:', maxRange);
+      
+      // Delay the fitBounds to ensure markers are rendered
+      setTimeout(() => {
+        map.fitBounds(bounds, {
+          padding: dynamicPadding, // Use single value for all sides
+          maxZoom: maxZoom,
+          duration: 1200 // Faster animation
+        });
+      }, 100);
+    }
   }, [places]);
 
 
@@ -598,14 +761,15 @@ export default function App() {
     try {
       const newMode = !isDayMode;
       const style = newMode 
-        ? 'mapbox://styles/mapbox/streets-v12' // Day mode
-        : 'mapbox://styles/mapbox/navigation-night-v1'; // Night mode
+        ? 'mapbox://styles/mapbox/light-v11' // Day mode - high contrast, easy to read
+        : 'mapbox://styles/mapbox/streets-v12'; // Night mode - clear streets with good contrast
       
-      console.log(`Switching to ${newMode ? 'day' : 'night'} mode`);
+      console.log(`🌓 Switching to ${newMode ? 'day' : 'night'} mode with style: ${style}`);
       map.setStyle(style);
       setIsDayMode(newMode);
     } catch (error) {
-      console.error('Error switching map style:', error);
+      console.error('❌ Error switching map style:', error);
+      setStatus('Error switching map theme');
     }
   };
 
@@ -698,6 +862,7 @@ export default function App() {
       });
       const data = await resp.json();
       setExtracted(data);
+      setIsExtractedCollapsed(false);
       setStatus('');
     } catch (error) {
       setStatus('Error extracting details');
@@ -725,6 +890,7 @@ export default function App() {
       setPlaces(data.places || []);
       setHasGeneratedItinerary(true);
       setIsTripRequestCollapsed(true); // Auto-collapse Trip Request after generating itinerary
+      setIsExtractedCollapsed(true); // Collapse Trip Details after generating itinerary
       setStatus('');
     } catch (error) {
       setStatus('Error generating itinerary');
@@ -1089,7 +1255,10 @@ export default function App() {
                 <div
                   ref={mapContainerRef}
                   className="w-full h-full rounded-none"
-                  style={{ background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)' }}
+                  style={{ 
+                    background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+                    minHeight: '400px' // Ensure minimum height
+                  }}
                 />
 
                 {/* Day/Night Toggle - Enhanced Styling */}
@@ -1222,14 +1391,27 @@ export default function App() {
                 )}
 
                 {/* Map Loading Overlay */}
-                {!MAPBOX_TOKEN && (
-                  <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                    <div className="text-center">
+                {(!MAPBOX_TOKEN || status.includes('Map failed')) && (
+                  <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="text-center bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20">
                       <div className="w-16 h-16 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                        🗺️
+                        {!MAPBOX_TOKEN ? '⚠️' : '🔄'}
                       </div>
-                      <h3 className="text-xl font-semibold mb-2">Map Loading</h3>
-                      <p className="text-gray-300">Please set VITE_MAPBOX_TOKEN in frontend/.env</p>
+                      <h3 className="text-xl font-semibold mb-2">
+                        {!MAPBOX_TOKEN ? 'Map Configuration Missing' : 'Map Loading Issues'}
+                      </h3>
+                      <p className="text-gray-300 mb-4">
+                        {!MAPBOX_TOKEN 
+                          ? 'Please set VITE_MAPBOX_TOKEN in frontend/.env' 
+                          : status || 'Initializing map...'}
+                      </p>
+                      {MAPBOX_TOKEN && (
+                        <div className="text-xs text-gray-400">
+                          Token: {MAPBOX_TOKEN.substring(0, 10)}...
+                          <br />
+                          Try refreshing the page if map doesn't load
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
