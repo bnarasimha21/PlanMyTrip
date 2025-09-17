@@ -118,7 +118,7 @@ export default function App() {
       console.log('🌍 Creating Mapbox map instance...');
       mapRef.current = new mapboxgl.Map({
         container: mapContainerRef.current,
-        style: isDayMode ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/streets-v12',
+        style: isDayMode ? 'mapbox://styles/mapbox/streets-v12' : 'mapbox://styles/mapbox/dark-v11',
         center: [77.5946, 12.9716],
         zoom: 11,
         attributionControl: false // Reduce clutter
@@ -761,8 +761,8 @@ export default function App() {
     try {
       const newMode = !isDayMode;
       const style = newMode 
-        ? 'mapbox://styles/mapbox/light-v11' // Day mode - high contrast, easy to read
-        : 'mapbox://styles/mapbox/streets-v12'; // Night mode - clear streets with good contrast
+        ? 'mapbox://styles/mapbox/streets-v12' // Day mode - clean streets with good readability
+        : 'mapbox://styles/mapbox/dark-v11'; // Night mode - dark theme for low light
       
       console.log(`🌓 Switching to ${newMode ? 'day' : 'night'} mode with style: ${style}`);
       map.setStyle(style);
@@ -1305,13 +1305,13 @@ export default function App() {
                       
                       {/* Sliding Circle */}
                       <div 
-                        className="absolute w-8 h-8 rounded-full transition-all duration-500 ease-in-out flex items-center justify-center transform"
+                        className="absolute w-8 h-8 rounded-full transition-all duration-500 ease-in-out flex items-center justify-center"
                         style={{
                           background: 'linear-gradient(145deg, #ffffff, #f8fafc)',
                           boxShadow: '0 4px 12px rgba(0,0,0,0.25), inset 0 2px 0 rgba(255,255,255,0.9), inset 0 -2px 0 rgba(0,0,0,0.1)',
-                          left: isDayMode ? '43px' : '3px',
-                          top: '3px',
-                          transform: `translateX(0) scale(${isDayMode ? '1.15' : '1'})`
+                          left: isDayMode ? '47px' : '3px',
+                          top: '50%',
+                          transform: `translateY(-50%) scale(${isDayMode ? '1.15' : '1'})`
                         }}
                       >
                         <span 
