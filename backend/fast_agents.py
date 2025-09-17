@@ -55,6 +55,82 @@ gradient_llm = ChatGradient(
 
 MAPBOX_TOKEN = os.getenv("MAPBOX_API_KEY") or os.getenv("MAPBOX_ACCESS_TOKEN")
 
+def get_country_for_city(city: str) -> str:
+    """Get the country for a given city to improve geocoding accuracy"""
+    city_lower = city.lower()
+
+    # City to country mapping
+    city_country_map = {
+        # Vietnam
+        'hanoi': 'Vietnam',
+        'ho chi minh city': 'Vietnam',
+        'saigon': 'Vietnam',
+        'da nang': 'Vietnam',
+        'hue': 'Vietnam',
+        'nha trang': 'Vietnam',
+        'hoi an': 'Vietnam',
+
+        # Thailand
+        'bangkok': 'Thailand',
+        'chiang mai': 'Thailand',
+        'phuket': 'Thailand',
+        'pattaya': 'Thailand',
+
+        # India
+        'mumbai': 'India',
+        'delhi': 'India',
+        'bangalore': 'India',
+        'kolkata': 'India',
+        'chennai': 'India',
+        'hyderabad': 'India',
+        'pune': 'India',
+        'goa': 'India',
+        'jaipur': 'India',
+        'agra': 'India',
+
+        # Malaysia
+        'kuala lumpur': 'Malaysia',
+        'penang': 'Malaysia',
+        'johor bahru': 'Malaysia',
+
+        # Singapore
+        'singapore': 'Singapore',
+
+        # Indonesia
+        'jakarta': 'Indonesia',
+        'bali': 'Indonesia',
+        'yogyakarta': 'Indonesia',
+
+        # Philippines
+        'manila': 'Philippines',
+        'cebu': 'Philippines',
+
+        # Europe
+        'paris': 'France',
+        'london': 'United Kingdom',
+        'rome': 'Italy',
+        'madrid': 'Spain',
+        'berlin': 'Germany',
+        'amsterdam': 'Netherlands',
+
+        # USA
+        'new york': 'United States',
+        'los angeles': 'United States',
+        'chicago': 'United States',
+        'san francisco': 'United States',
+        'miami': 'United States',
+
+        # Other popular destinations
+        'tokyo': 'Japan',
+        'seoul': 'South Korea',
+        'beijing': 'China',
+        'shanghai': 'China',
+        'sydney': 'Australia',
+        'melbourne': 'Australia',
+    }
+
+    return city_country_map.get(city_lower, '')
+
 def fast_get_itinerary(city: str, interests: str, days: int):
     """Fast itinerary generation using direct OpenAI call with SERP API enhancement"""
     
@@ -105,6 +181,12 @@ def fast_get_itinerary(city: str, interests: str, days: int):
 Return ONLY a valid JSON object with this structure:
 {{"places":[{{"name":"Name","neighborhood":"Area","category":"food/art/culture/shopping/sightseeing","address":"Address","latitude":null,"longitude":null,"notes":"Brief note"}}]}}
 
+CRITICAL LOCATION REQUIREMENT:
+- ALL places MUST be located specifically in {city}
+- DO NOT include places from other cities
+- Verify each place is actually in {city} before including it
+- If unsure about location, do not include the place
+
 Requirements:
 - Include {max(5, days * 2)} diverse places that match the interests
 - Prioritize places from the search results when they match the interests
@@ -113,7 +195,8 @@ Requirements:
 - Categorize each place appropriately (food, art, culture, shopping, sightseeing)
 - Provide helpful notes for each place
 - Focus on places that are currently open and accessible
-- Real places only, NO markdown formatting, just pure JSON"""
+- Real places only, NO markdown formatting, just pure JSON
+- ONLY places located in {city}"""
 
     try:
         # Set up structured output parser
@@ -156,7 +239,29 @@ Requirements:
                 places = data.get('places', [])
             except json.JSONDecodeError:
                 places = []
-            
+
+        # Filter out places that might be in wrong city based on name/address
+        filtered_places = []
+        wrong_city_keywords = ['ho chi minh', 'saigon', 'bangkok', 'kuala lumpur', 'singapore', 'jakarta', 'manila', 'phnom penh', 'vientiane']
+        target_city_lower = city.lower()
+
+        for place in places:
+            place_name = (place.get('name') or '').lower()
+            place_address = (place.get('address') or '').lower()
+            place_notes = (place.get('notes') or '').lower()
+
+            # Check if place contains wrong city keywords
+            contains_wrong_city = any(keyword in place_name or keyword in place_address or keyword in place_notes
+                                    for keyword in wrong_city_keywords if keyword != target_city_lower)
+
+            if not contains_wrong_city:
+                filtered_places.append(place)
+            else:
+                print(f"[FILTER] Removed {place.get('name')} - appears to be in wrong city")
+
+        places = filtered_places
+        print(f"[FILTER] Filtered places count: {len(places)}")
+
         # Geocode missing coordinates so markers render on the map
         print(f"[GEOCODING] Starting geocoding. MAPBOX_TOKEN exists: {bool(MAPBOX_TOKEN)}, MAPBOX_TOKEN value: {MAPBOX_TOKEN[:10] if MAPBOX_TOKEN else 'None'}..., Places count: {len(places)}")
         if MAPBOX_TOKEN and places:
@@ -167,7 +272,10 @@ Requirements:
                 place_name = place.get("name")
                 
                 address = place.get("address")
-                query_parts = [place_name, address, city]
+                # Get the correct country for the city
+                country = get_country_for_city(city)
+                city_country = f"{city}, {country}" if country else city
+                query_parts = [place_name, address, city_country]
                 query = ", ".join([q for q in query_parts if q])
                 print(f"[GEOCODING] Geocoding '{place_name}' with query: '{query}'")
                 try:
@@ -477,6 +585,11 @@ Current Places: {places_json}
 
 Use the search results above when modifying places. Prioritize places with good ratings and detailed information.
 
+CRITICAL LOCATION REQUIREMENT:
+- ALL places (new or existing) MUST be located specifically in {city}
+- DO NOT include places from other cities (including Ho Chi Minh City, Bangkok, etc.)
+- Verify each place is actually in {city} before including it
+
 CRITICAL INSTRUCTIONS - READ CAREFULLY:
 
 1. PRESERVATION RULE: The "places" array in your response MUST contain ALL places that should exist in the final itinerary.
@@ -564,36 +677,60 @@ Return ONLY a JSON object:
                 # Ultimate fallback
                 updated_places = existing_places or []
                 response_text = "I've processed your request."
-            
-            # Geocode missing coordinates for new places
-            if MAPBOX_TOKEN and updated_places:
-                for place in updated_places:
-                    if place.get("latitude") is not None and place.get("longitude") is not None:
-                        continue
-                    
-                    # Build search query with city, country for better accuracy
-                    place_name = place.get("name")
-                    address = place.get("address")
-                    
-                    # Add "India" to help disambiguate Indian cities from other countries
-                    query_parts = [place_name, address, f"{city}, India"]
-                    query = ", ".join([q for q in query_parts if q])
-                    
-                    try:
-                        url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{requests.utils.quote(query)}.json"
-                        resp = requests.get(url, params={"access_token": MAPBOX_TOKEN, "limit": 1}, timeout=10)
-                        if resp.ok:
-                            features = resp.json().get("features", [])
-                            if features:
-                                longitude, latitude = features[0]["center"]
-                                place["latitude"] = latitude
-                                place["longitude"] = longitude
-                                if not place.get("address"):
-                                    place["address"] = features[0].get("place_name")
-                    except Exception:
-                        # If geocoding fails, set to None (will be skipped in frontend)
-                        place["latitude"] = None
-                        place["longitude"] = None
+
+        # Filter out places that might be in wrong city based on name/address
+        filtered_places = []
+        wrong_city_keywords = ['ho chi minh', 'saigon', 'bangkok', 'kuala lumpur', 'singapore', 'jakarta', 'manila', 'phnom penh', 'vientiane']
+        target_city_lower = city.lower()
+
+        for place in updated_places:
+            place_name = (place.get('name') or '').lower()
+            place_address = (place.get('address') or '').lower()
+            place_notes = (place.get('notes') or '').lower()
+
+            # Check if place contains wrong city keywords
+            contains_wrong_city = any(keyword in place_name or keyword in place_address or keyword in place_notes
+                                    for keyword in wrong_city_keywords if keyword != target_city_lower)
+
+            if not contains_wrong_city:
+                filtered_places.append(place)
+            else:
+                print(f"[FILTER] Removed {place.get('name')} from modification - appears to be in wrong city")
+
+        updated_places = filtered_places
+        print(f"[FILTER] Filtered modification places count: {len(updated_places)}")
+
+        # Geocode missing coordinates for new places
+        if MAPBOX_TOKEN and updated_places:
+            for place in updated_places:
+                if place.get("latitude") is not None and place.get("longitude") is not None:
+                    continue
+
+                # Build search query with city, country for better accuracy
+                place_name = place.get("name")
+                address = place.get("address")
+
+                # Get the correct country for the city to improve geocoding accuracy
+                country = get_country_for_city(city)
+                city_country = f"{city}, {country}" if country else city
+                query_parts = [place_name, address, city_country]
+                query = ", ".join([q for q in query_parts if q])
+
+                try:
+                    url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{requests.utils.quote(query)}.json"
+                    resp = requests.get(url, params={"access_token": MAPBOX_TOKEN, "limit": 1}, timeout=10)
+                    if resp.ok:
+                        features = resp.json().get("features", [])
+                        if features:
+                            longitude, latitude = features[0]["center"]
+                            place["latitude"] = latitude
+                            place["longitude"] = longitude
+                            if not place.get("address"):
+                                place["address"] = features[0].get("place_name")
+                except Exception:
+                    # If geocoding fails, set to None (will be skipped in frontend)
+                    place["latitude"] = None
+                    place["longitude"] = None
 
         return {
             "city": city,
