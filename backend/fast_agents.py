@@ -1,18 +1,58 @@
 #!/usr/bin/env python3
 """
-Fast alternatives to CrewAI agents using direct OpenAI calls
+Fast alternatives to CrewAI agents using Langchain Gradient
 for 3-5x performance improvement
 """
 
 import json
-import openai
 import os
 import requests
+from typing import List, Dict, Any
 from dotenv import load_dotenv
+from langchain_gradient import ChatGradient
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import PromptTemplate
+from pydantic import BaseModel, Field
 from serp_utils import search_travel_info, search_places, search_restaurants, search_attractions, search_activities
 
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# Define Pydantic models for structured output
+class Place(BaseModel):
+    name: str = Field(description="Name of the place")
+    neighborhood: str = Field(description="Neighborhood or area", default=None)
+    category: str = Field(description="Category: food/art/culture/shopping/sightseeing")
+    address: str = Field(description="Full address", default=None)
+    latitude: float = Field(description="Latitude coordinate", default=None)
+    longitude: float = Field(description="Longitude coordinate", default=None)
+    notes: str = Field(description="Brief description or notes")
+
+class ItineraryResponse(BaseModel):
+    places: List[Place] = Field(description="List of places for the itinerary")
+
+class ClassificationResponse(BaseModel):
+    classification: str = Field(description="Either 'question' or 'modification'")
+
+class QuestionResponse(BaseModel):
+    response: str = Field(description="Answer to the travel question")
+
+class ModificationResponse(BaseModel):
+    type: str = Field(description="Type of response", default="modification")
+    response: str = Field(description="Description of changes made")
+    places: List[Place] = Field(description="Updated list of places")
+
+class TripExtractionResponse(BaseModel):
+    city: str = Field(description="City name")
+    interests: str = Field(description="Comma-separated interests")
+    days: int = Field(description="Number of days")
+
+# Initialize Gradient LLM
+gradient_llm = ChatGradient(
+    model="llama3.3-70b-instruct",
+    api_key=os.getenv("DIGITALOCEAN_INFERENCE_KEY")
+)
+
 MAPBOX_TOKEN = os.getenv("MAPBOX_API_KEY") or os.getenv("MAPBOX_ACCESS_TOKEN")
 
 def fast_get_itinerary(city: str, interests: str, days: int):
@@ -76,34 +116,46 @@ Requirements:
 - Real places only, NO markdown formatting, just pure JSON"""
 
     try:
-        completion = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a travel expert. Return only valid JSON with real, current places."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.5,
-            max_tokens=800
+        # Set up structured output parser
+        parser = JsonOutputParser(pydantic_object=ItineraryResponse)
+
+        prompt_template = PromptTemplate(
+            template="You are a travel expert. {format_instructions}\n\n{query}",
+            input_variables=["query"],
+            partial_variables={"format_instructions": parser.get_format_instructions()}
         )
-        
-        response = completion.choices[0].message.content.strip()
-        
-        # Clean markdown if present
-        if response.startswith('```json'):
-            response = response[7:]
-        elif response.startswith('```'):
-            response = response[3:]
-        if response.endswith('```'):
-            response = response[:-3]
-        response = response.strip()
-        
-        # Parse JSON
+
+        chain = prompt_template | gradient_llm | parser
+
         try:
-            data = json.loads(response)
-            places = data.get('places', [])
-        except json.JSONDecodeError:
-            # Fallback: create simple places from text
-            places = []
+            result = chain.invoke({"query": prompt})
+            places = result.get('places', [])
+        except Exception as e:
+            print(f"[STRUCTURED] Structured output failed, using fallback: {e}")
+            # Fallback to regular call
+            messages = [
+                SystemMessage(content="You are a travel expert. Return only valid JSON with real, current places."),
+                HumanMessage(content=prompt)
+            ]
+
+            llm_result = gradient_llm.invoke(messages, temperature=0.5, max_tokens=800)
+            response = llm_result.content.strip()
+
+            # Clean markdown if present
+            if response.startswith('```json'):
+                response = response[7:]
+            elif response.startswith('```'):
+                response = response[3:]
+            if response.endswith('```'):
+                response = response[:-3]
+            response = response.strip()
+
+            # Parse JSON
+            try:
+                data = json.loads(response)
+                places = data.get('places', [])
+            except json.JSONDecodeError:
+                places = []
             
         # Geocode missing coordinates so markers render on the map
         print(f"[GEOCODING] Starting geocoding. MAPBOX_TOKEN exists: {bool(MAPBOX_TOKEN)}, MAPBOX_TOKEN value: {MAPBOX_TOKEN[:10] if MAPBOX_TOKEN else 'None'}..., Places count: {len(places)}")
@@ -113,6 +165,7 @@ Requirements:
                     print(f"[GEOCODING] Skipping {place.get('name')} - already has coordinates")
                     continue
                 place_name = place.get("name")
+                
                 address = place.get("address")
                 query_parts = [place_name, address, city]
                 query = ", ".join([q for q in query_parts if q])
@@ -152,7 +205,7 @@ Requirements:
             "interests": interests,
             "days": days,
             "places": places[:6],  # Limit for speed
-            "raw_research_text": response
+            "raw_research_text": str(result) if 'result' in locals() else None
         }
         
     except Exception as e:
@@ -187,17 +240,32 @@ CLASSIFICATION RULES:
 Respond with ONLY one word: "question" or "modification"."""
 
     try:
-        completion = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a precise intent classifier for travel planning. 'question' = asking for information/availability. 'modification' = direct command to change itinerary. Questions about 'can I', 'where can I', 'is there' are ALWAYS questions, not modifications. Respond with only 'question' or 'modification'."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.1,  # Low temperature for consistent classification
-            max_tokens=10
+        # Set up structured output parser
+        parser = JsonOutputParser(pydantic_object=ClassificationResponse)
+
+        prompt_template = PromptTemplate(
+            template="You are a precise intent classifier for travel planning. 'question' = asking for information/availability. 'modification' = direct command to change itinerary. Questions about 'can I', 'where can I', 'is there' are ALWAYS questions, not modifications.\n\n{format_instructions}\n\n{query}",
+            input_variables=["query"],
+            partial_variables={"format_instructions": parser.get_format_instructions()}
         )
-        
-        result = completion.choices[0].message.content.strip().lower()
+
+        chain = prompt_template | gradient_llm | parser
+
+        try:
+            result = chain.invoke({"query": prompt})
+            classification = result.get('classification', '').lower()
+        except Exception as e:
+            print(f"[STRUCTURED] Classification structured output failed, using fallback: {e}")
+            # Fallback to regular call
+            messages = [
+                SystemMessage(content="You are a precise intent classifier for travel planning. 'question' = asking for information/availability. 'modification' = direct command to change itinerary. Questions about 'can I', 'where can I', 'is there' are ALWAYS questions, not modifications. Respond with only 'question' or 'modification'."),
+                HumanMessage(content=prompt)
+            ]
+
+            response = gradient_llm.invoke(messages, temperature=0.1, max_tokens=10)
+            classification = response.content.strip().lower()
+
+        result = classification
         
         # Debug logging
         print(f"[CLASSIFIER] Input: '{user_input}' -> Raw response: '{result}'")
@@ -266,17 +334,30 @@ Context: {serp_info}
 Give a direct 1-sentence answer (max 20 words):"""
 
     try:
-        completion = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Answer travel questions in exactly 1 sentence. Maximum 20 words. Be direct and helpful."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.1,
-            max_tokens=40
+        # Set up structured output parser
+        parser = JsonOutputParser(pydantic_object=QuestionResponse)
+
+        prompt_template = PromptTemplate(
+            template="Answer travel questions in exactly 1 sentence. Maximum 20 words. Be direct and helpful.\n\n{format_instructions}\n\n{query}",
+            input_variables=["query"],
+            partial_variables={"format_instructions": parser.get_format_instructions()}
         )
-        
-        response = completion.choices[0].message.content.strip()
+
+        chain = prompt_template | gradient_llm | parser
+
+        try:
+            result = chain.invoke({"query": prompt})
+            response = result.get('response', '')
+        except Exception as e:
+            print(f"[STRUCTURED] Question structured output failed, using fallback: {e}")
+            # Fallback to regular call
+            messages = [
+                SystemMessage(content="Answer travel questions in exactly 1 sentence. Maximum 20 words. Be direct and helpful."),
+                HumanMessage(content=prompt)
+            ]
+
+            llm_result = gradient_llm.invoke(messages, temperature=0.1, max_tokens=40)
+            response = llm_result.content.strip()
         
         # Ensure response ends with period if it doesn't
         if response and not response.endswith('.'):
@@ -439,32 +520,50 @@ Return ONLY a JSON object:
 }}"""
 
     try:
-        completion = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a travel assistant. Return only valid JSON for itinerary modifications."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=800
+        # Set up structured output parser
+        parser = JsonOutputParser(pydantic_object=ModificationResponse)
+
+        prompt_template = PromptTemplate(
+            template="You are a travel assistant. Return valid JSON for itinerary modifications.\n\n{format_instructions}\n\n{query}",
+            input_variables=["query"],
+            partial_variables={"format_instructions": parser.get_format_instructions()}
         )
-        
-        response = completion.choices[0].message.content.strip()
-        
-        # Clean markdown if present
-        if response.startswith('```json'):
-            response = response[7:]
-        elif response.startswith('```'):
-            response = response[3:]
-        if response.endswith('```'):
-            response = response[:-3]
-        response = response.strip()
-        
-        # Parse JSON
+
+        chain = prompt_template | gradient_llm | parser
+
         try:
-            data = json.loads(response)
-            updated_places = data.get('places', existing_places or [])
-            response_text = data.get('response', 'I\'ve processed your modification request.')
+            result = chain.invoke({"query": prompt})
+            updated_places = result.get('places', existing_places or [])
+            response_text = result.get('response', 'I\'ve processed your modification request.')
+        except Exception as e:
+            print(f"[STRUCTURED] Modification structured output failed, using fallback: {e}")
+            # Fallback to regular call
+            messages = [
+                SystemMessage(content="You are a travel assistant. Return only valid JSON for itinerary modifications."),
+                HumanMessage(content=prompt)
+            ]
+
+            llm_result = gradient_llm.invoke(messages, temperature=0.7, max_tokens=800)
+            response = llm_result.content.strip()
+
+            # Clean markdown if present
+            if response.startswith('```json'):
+                response = response[7:]
+            elif response.startswith('```'):
+                response = response[3:]
+            if response.endswith('```'):
+                response = response[:-3]
+            response = response.strip()
+
+            # Parse JSON
+            try:
+                data = json.loads(response)
+                updated_places = data.get('places', existing_places or [])
+                response_text = data.get('response', 'I\'ve processed your modification request.')
+            except json.JSONDecodeError:
+                # Ultimate fallback
+                updated_places = existing_places or []
+                response_text = "I've processed your request."
             
             # Geocode missing coordinates for new places
             if MAPBOX_TOKEN and updated_places:
@@ -495,26 +594,15 @@ Return ONLY a JSON object:
                         # If geocoding fails, set to None (will be skipped in frontend)
                         place["latitude"] = None
                         place["longitude"] = None
-            
-            return {
-                "city": city,
-                "interests": interests,
-                "days": days,
-                "places": updated_places,
-                "type": "modification",
-                "response": response_text
-            }
-            
-        except json.JSONDecodeError:
-            # Fallback
-            return {
-                "city": city,
-                "interests": interests,
-                "days": days,
-                "places": existing_places or [],
-                "type": "modification",
-                "response": "I've processed your request."
-            }
+
+        return {
+            "city": city,
+            "interests": interests,
+            "days": days,
+            "places": updated_places,
+            "type": "modification",
+            "response": response_text
+        }
         
     except Exception as e:
         print(f"Fast modification error: {e}")
@@ -545,33 +633,47 @@ Return ONLY a JSON object with these exact keys:
 If any information is missing, use reasonable defaults."""
 
     try:
-        completion = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Extract travel information. Return only valid JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            max_tokens=150
+        # Set up structured output parser
+        parser = JsonOutputParser(pydantic_object=TripExtractionResponse)
+
+        prompt_template = PromptTemplate(
+            template="Extract travel information from the request.\n\n{format_instructions}\n\n{query}",
+            input_variables=["query"],
+            partial_variables={"format_instructions": parser.get_format_instructions()}
         )
-        
-        response = completion.choices[0].message.content.strip()
-        
-        # Clean markdown if present
-        if response.startswith('```json'):
-            response = response[7:]
-        elif response.startswith('```'):
-            response = response[3:]
-        if response.endswith('```'):
-            response = response[:-3]
-        response = response.strip()
-        
+
+        chain = prompt_template | gradient_llm | parser
+
         try:
-            data = json.loads(response)
-            if all(k in data for k in ["city", "interests", "days"]):
-                return data
-        except:
-            pass
+            result = chain.invoke({"query": prompt})
+            if all(k in result for k in ["city", "interests", "days"]):
+                return result
+        except Exception as e:
+            print(f"[STRUCTURED] Extraction structured output failed, using fallback: {e}")
+            # Fallback to regular call
+            messages = [
+                SystemMessage(content="Extract travel information. Return only valid JSON."),
+                HumanMessage(content=prompt)
+            ]
+
+            llm_result = gradient_llm.invoke(messages, temperature=0.3, max_tokens=150)
+            response = llm_result.content.strip()
+
+            # Clean markdown if present
+            if response.startswith('```json'):
+                response = response[7:]
+            elif response.startswith('```'):
+                response = response[3:]
+            if response.endswith('```'):
+                response = response[:-3]
+            response = response.strip()
+
+            try:
+                data = json.loads(response)
+                if all(k in data for k in ["city", "interests", "days"]):
+                    return data
+            except:
+                pass
             
     except Exception as e:
         print(f"Fast extraction error: {e}")
