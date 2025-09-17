@@ -1,5 +1,7 @@
 # ✈️ Let Me Plan My Trip
 
+[![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/bnarasimha21/PlanMyTrip/tree/main)
+
 An AI-powered travel planning application that generates personalized itineraries with interactive maps and intelligent conversation features.
 
 ## 🌟 Features
