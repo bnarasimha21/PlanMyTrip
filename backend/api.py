@@ -3,10 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
 
-from fast_agents import fast_extract_trip_request, fast_get_itinerary, fast_handle_question, fast_handle_modification, classify_user_intent, test_classifier
+# Import the new simplified workflow
+from agents.simple_workflow import trip_workflow
 
-
-app = FastAPI(title="LetMePlanMyTrip API", version="0.1.0")
+app = FastAPI(title="LetMePlanMyTrip API (LangGraph)", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -16,17 +16,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 class ExtractRequest(BaseModel):
     text: str
-
 
 class ItineraryRequest(BaseModel):
     city: Optional[str] = None
     interests: Optional[str] = None
     days: Optional[int] = None
     trip_request: Optional[str] = None
-
 
 class Place(BaseModel):
     name: str
@@ -36,7 +33,6 @@ class Place(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     notes: Optional[str] = None
-
 
 class ModifyRequest(BaseModel):
     city: str
@@ -49,101 +45,106 @@ class ModifyRequest(BaseModel):
 
 @app.get("/")
 def home() -> Dict[str, Any]:
-    return {"status": "ok", "message": "LetMePlanMyTrip API is running"}
+    return {"status": "ok", "message": "LetMePlanMyTrip API (LangGraph) is running"}
 
 @app.get("/health")
 def health() -> Dict[str, Any]:
-    return {"status": "ok"}
-
+    return {"status": "ok", "version": "2.0.0", "backend": "LangGraph"}
 
 @app.post("/extract")
 def extract(req: ExtractRequest) -> Dict[str, Any]:
-    parsed = fast_extract_trip_request(req.text)  # Use fast version
-    return parsed
-
+    """Extract trip details using LangGraph agents"""
+    try:
+        result = trip_workflow.extract_trip_request(req.text)
+        return result
+    except Exception as e:
+        print(f"Extract error: {e}")
+        return {"city": "Bangalore", "interests": "art, food", "days": 1}
 
 @app.post("/itinerary")
 def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
-    if req.trip_request and not (req.city and req.interests and req.days):
-        parsed = fast_extract_trip_request(req.trip_request)  # Use fast version
-        city = parsed["city"]
-        interests = parsed["interests"]
-        days = parsed["days"]
-    else:
-        city = req.city or "Bangalore"
-        interests = req.interests or "art, food"
-        days = req.days or 1
-    data = fast_get_itinerary(city=city, interests=interests, days=days)  # Use fast version
-    return data  # {city, interests, days, places, raw_research_text}
+    """Generate itinerary using LangGraph agents"""
+    try:
+        if req.trip_request and not (req.city and req.interests and req.days):
+            # Extract details first if needed
+            extracted = trip_workflow.extract_trip_request(req.trip_request)
+            city = extracted["city"]
+            interests = extracted["interests"]
+            days = extracted["days"]
+        else:
+            city = req.city or "Bangalore"
+            interests = req.interests or "art, food"
+            days = req.days or 1
 
+        result = trip_workflow.generate_itinerary(city=city, interests=interests, days=days)
+        return result
+
+    except Exception as e:
+        print(f"Itinerary error: {e}")
+        return {
+            "city": city if 'city' in locals() else "Bangalore",
+            "interests": interests if 'interests' in locals() else "art, food",
+            "days": days if 'days' in locals() else 1,
+            "places": [],
+            "raw_research_text": None
+        }
 
 @app.post("/modify")
 def modify(req: ModifyRequest) -> Dict[str, Any]:
-    print(f"\n=== /modify endpoint called ===")
-    print(f"Instruction: '{req.instruction}'")
-    print(f"City: {req.city}, Days: {req.days}")
-    
-    places_dicts = [p.model_dump() for p in req.places]
-    print(f"Number of existing places: {len(places_dicts)}")
-    
-    # Use AI to intelligently classify the user's intent
-    context = f"User is planning a {req.days}-day trip to {req.city} with interests in {req.interests}. "
-    if places_dicts:
-        place_names = [p.get('name', 'Unknown') for p in places_dicts[:5]]  # First 5 places for context
-        context += f"Current itinerary includes: {', '.join(place_names)}."
-    else:
-        context += "No places in itinerary yet."
-    
-    print(f"About to call classify_user_intent...")
-    user_intent = classify_user_intent(req.instruction, context)
-    print(f"classify_user_intent returned: '{user_intent}'")
-    is_question = (user_intent == 'question')
-    
-    # Log classification for debugging
-    print(f"User input: '{req.instruction}' -> Classified as: '{user_intent}'")
-    
-    if is_question:
-        # Handle as question - no places modification
-        response = fast_handle_question(  # Use fast version
-            city=req.city,
-            interests=req.interests,
-            days=req.days,
-            user_question=req.instruction,
-            original_request=req.original_request,
-            current_places=places_dicts,
-            chat_history=req.chat_history,
-        )
-        
-        # Log the response for debugging
-        print(f"[API DEBUG] Response received: {response.get('response', 'NO RESPONSE')[:100]}...")
-        
-        # Add places for consistency with frontend expectations
-        response["city"] = req.city
-        response["interests"] = req.interests
-        response["days"] = req.days
-        response["places"] = places_dicts  # Keep existing places unchanged
-    else:
-        # Handle as modification request
-        response = fast_handle_modification(  # Use fast version
+    """Handle modifications using LangGraph agents"""
+    try:
+        print(f"\n=== /modify endpoint called (LangGraph) ===")
+        print(f"Instruction: '{req.instruction}'")
+        print(f"City: {req.city}, Days: {req.days}")
+
+        places_dicts = [p.model_dump() for p in req.places]
+        print(f"Number of existing places: {len(places_dicts)}")
+
+        result = trip_workflow.handle_modification(
             city=req.city,
             interests=req.interests,
             days=req.days,
             existing_places=places_dicts,
-            modification_request=req.instruction,
+            instruction=req.instruction,
+            original_request=req.original_request,
+            chat_history=req.chat_history
         )
-    
-    return response
 
+        return result
 
-@app.get("/test-classifier")
-def test_classification() -> Dict[str, Any]:
-    """Test endpoint to verify classifier is working correctly"""
-    try:
-        test_classifier()
-        return {"status": "success", "message": "Check console output for test results"}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        print(f"Modify error: {e}")
+        return {
+            "city": req.city,
+            "interests": req.interests,
+            "days": req.days,
+            "places": [p.model_dump() for p in req.places],
+            "type": "modification",
+            "response": "I'm having trouble processing that request right now."
+        }
 
+# Test endpoint for the new workflow
+@app.get("/test-workflow")
+def test_workflow() -> Dict[str, Any]:
+    """Test endpoint to verify LangGraph workflow is working"""
+    try:
+        # Test extraction
+        extraction_result = trip_workflow.extract_trip_request("Plan a 2-day food tour in Tokyo")
+
+        # Test itinerary generation
+        itinerary_result = trip_workflow.generate_itinerary("Tokyo", "food", 2)
+
+        return {
+            "status": "success",
+            "extraction_test": extraction_result,
+            "itinerary_places_count": len(itinerary_result.get("places", [])),
+            "message": "LangGraph workflow is functioning correctly"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 
 if __name__ == "__main__":
     import uvicorn
