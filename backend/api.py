@@ -1,10 +1,21 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
+import io
+import tempfile
+import os
 
 # Import the new simplified workflow
 from agents.simple_workflow import trip_workflow
+
+# Import GTTS for text-to-speech
+try:
+    from gtts import gTTS
+    GTTS_AVAILABLE = True
+except ImportError:
+    GTTS_AVAILABLE = False
+    print("GTTS not available. Install with: pip install gtts")
 
 app = FastAPI(title="LetMePlanMyTrip API (LangGraph)", version="2.0.0")
 
@@ -42,6 +53,10 @@ class ModifyRequest(BaseModel):
     instruction: str
     original_request: Optional[str] = None
     chat_history: Optional[List[Dict[str, Any]]] = None
+
+class TTSRequest(BaseModel):
+    text: str
+    lang: Optional[str] = "en"
 
 @app.get("/")
 def home() -> Dict[str, Any]:
@@ -122,6 +137,39 @@ def modify(req: ModifyRequest) -> Dict[str, Any]:
             "type": "modification",
             "response": "I'm having trouble processing that request right now."
         }
+
+@app.post("/tts")
+def text_to_speech(req: TTSRequest):
+    """Generate audio from text using GTTS"""
+    if not GTTS_AVAILABLE:
+        return {"error": "GTTS not available"}
+
+    try:
+        # Create GTTS object
+        tts = gTTS(text=req.text, lang=req.lang, slow=False)
+
+        # Create a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
+            tts.save(temp_file.name)
+
+            # Read the audio file
+            with open(temp_file.name, "rb") as audio_file:
+                audio_data = audio_file.read()
+
+            # Clean up temp file
+            os.unlink(temp_file.name)
+
+            # Return audio file
+            return Response(
+                content=audio_data,
+                media_type="audio/mpeg",
+                headers={
+                    "Content-Disposition": "inline; filename=speech.mp3"
+                }
+            )
+
+    except Exception as e:
+        return {"error": str(e)}
 
 # Test endpoint for the new workflow
 @app.get("/test-workflow")

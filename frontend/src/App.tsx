@@ -75,10 +75,11 @@ export default function App() {
   const animationIdRef = useRef<number | null>(null);
   const [isNarrationEnabled, setIsNarrationEnabled] = useState(true);
   const narratedPlacesRef = useRef<Set<string>>(new Set());
+  const speechRecognitionRef = useRef<any>(null); // Store reference to current speech recognition
   const [isDayMode, setIsDayMode] = useState(false); // false = night mode (default)
   const [isTTSEnabled, setIsTTSEnabled] = useState(true); // Text-to-speech for chatbot responses
 
-  // Add CSS for better map readability
+  // Add CSS for better map readability and voice animations
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
@@ -86,20 +87,65 @@ export default function App() {
       .mapboxgl-map {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
       }
-      
+
       /* Make street labels larger and more readable */
       .mapboxgl-map .mapboxgl-marker {
         filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)) !important;
       }
-      
+
       /* Improve navigation controls */
       .mapboxgl-ctrl-group {
         box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
         border-radius: 8px !important;
       }
+
+      /* Voice Animation Keyframes */
+      @keyframes voiceBar {
+        0% { height: 20px; }
+        50% { height: 60px; }
+        100% { height: 20px; }
+      }
+
+      @keyframes processingDots {
+        0%, 20% { opacity: 0; }
+        50% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+
+      .animation-delay-200 {
+        animation-delay: 200ms;
+      }
+
+      .animation-delay-400 {
+        animation-delay: 400ms;
+      }
+
+      /* Processing Animation */
+      .processing-dot:nth-child(1) { animation-delay: 0ms; }
+      .processing-dot:nth-child(2) { animation-delay: 200ms; }
+      .processing-dot:nth-child(3) { animation-delay: 400ms; }
+
+      /* Custom scrollbar for chat */
+      .chat-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .chat-scrollbar::-webkit-scrollbar-track {
+        background: rgba(51, 65, 85, 0.5);
+        border-radius: 3px;
+      }
+
+      .chat-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.5);
+        border-radius: 3px;
+      }
+
+      .chat-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(148, 163, 184, 0.7);
+      }
     `;
     document.head.appendChild(style);
-    
+
     return () => {
       document.head.removeChild(style);
     };
@@ -682,42 +728,79 @@ export default function App() {
     return (bearing + 360) % 360;
   };
 
-  // Text-to-speech for chatbot responses
-  const speakText = (text: string) => {
+  // GTTS Text-to-speech for chatbot responses
+  const speakText = async (text: string) => {
     if (!isTTSEnabled || !text.trim()) return;
-    
+
     // Stop any currently speaking synthesis
     if (speechSynthesis.speaking) {
       speechSynthesis.cancel();
     }
-    
+
+    // Clean up text - remove emojis and markdown formatting
+    const cleanText = text.replace(/[📍🏛️🎨🍴🛍️👁️✨🎤⏹️🗺️🎯📝💡]/g, '')
+                         .replace(/\*\*(.*?)\*\*/g, '$1')
+                         .replace(/\*(.*?)\*/g, '$1')
+                         .replace(/[_`]/g, '')
+                         .trim();
+
+    if (!cleanText) return;
+
+    try {
+      // Try GTTS first, fallback to browser speech synthesis
+      const response = await fetch('http://localhost:8000/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: cleanText })
+      });
+
+      if (response.ok) {
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+        };
+
+        console.log('🔊 GTTS audio playing');
+        await audio.play();
+        return;
+      }
+    } catch (gttsError) {
+      console.log('GTTS unavailable, falling back to browser TTS');
+    }
+
+    // Fallback to browser speech synthesis
     if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+
       // Configure voice settings
-      utterance.rate = 0.9; // Slightly slower for clarity
+      utterance.rate = 0.9;
       utterance.pitch = 1.0;
       utterance.volume = 0.8;
-      
+
       // Try to use a high-quality voice
       const voices = speechSynthesis.getVoices();
-      const preferredVoice = voices.find(voice => 
-        voice.name.includes('Google') || 
-        voice.name.includes('Samantha') || 
+      const preferredVoice = voices.find(voice =>
+        voice.name.includes('Google') ||
+        voice.name.includes('Samantha') ||
         voice.name.includes('Karen') ||
         voice.name.includes('Zira') ||
         (voice.lang.startsWith('en') && voice.localService === false)
       );
-      
+
       if (preferredVoice) {
         utterance.voice = preferredVoice;
       }
-      
+
       // Add event listeners for debugging
-      utterance.onstart = () => console.log('🔊 TTS started');
-      utterance.onend = () => console.log('🔇 TTS ended');
-      utterance.onerror = (e) => console.error('❌ TTS error:', e);
-      
+      utterance.onstart = () => console.log('🔊 Browser TTS started');
+      utterance.onend = () => console.log('🔇 Browser TTS ended');
+      utterance.onerror = (e) => console.error('❌ Browser TTS error:', e);
+
       speechSynthesis.speak(utterance);
     }
   };
@@ -1268,10 +1351,26 @@ export default function App() {
                         {/* Show processing indicator in chat */}
                         {status && status.includes('Processing') && (
                           <div className="flex justify-start">
-                            <div className="max-w-[80%] p-3 rounded-lg bg-gradient-to-r from-slate-600 to-slate-700 text-white mr-8 shadow-lg">
-                              <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                <p className="text-base">{status}</p>
+                            <div className="max-w-[80%] p-4 rounded-lg bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white mr-8 shadow-lg">
+                              <div className="flex items-center gap-3">
+                                {/* Bouncing dots animation */}
+                                <div className="flex gap-1">
+                                  <div className="w-2 h-2 bg-white rounded-full processing-dot" style={{animation: 'processingDots 1.4s ease-in-out infinite'}}></div>
+                                  <div className="w-2 h-2 bg-white rounded-full processing-dot" style={{animation: 'processingDots 1.4s ease-in-out infinite'}}></div>
+                                  <div className="w-2 h-2 bg-white rounded-full processing-dot" style={{animation: 'processingDots 1.4s ease-in-out infinite'}}></div>
+                                </div>
+
+                                {/* AI brain icon with pulse */}
+                                <div className="relative">
+                                  <div className="w-6 h-6 bg-white/20 rounded-full animate-pulse flex items-center justify-center">
+                                    <span className="text-sm">🧠</span>
+                                  </div>
+                                  <div className="absolute inset-0 w-6 h-6 bg-white/10 rounded-full animate-ping"></div>
+                                </div>
+
+                                <div className="flex flex-col">
+                                  <p className="text-base font-medium">Analysing your request</p>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1285,40 +1384,146 @@ export default function App() {
 
                   {/* Chat Input - Fixed at Bottom */}
                   <div className="p-6 pt-4 flex-shrink-0">
-                    <div className="flex gap-2">
-                      <div className="flex-1 relative">
+                    {/* Siri-like Voice Animation Overlay */}
+                    {isChatListening && (
+                      <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-50 flex items-center justify-center">
+                        <div className="flex flex-col items-center space-y-6">
+                          {/* Siri-like Animation */}
+                          <div className="relative">
+                            {/* Outer rings */}
+                            <div className="absolute inset-0 w-32 h-32 rounded-full border-2 border-blue-400/30 animate-ping"></div>
+                            <div className="absolute inset-2 w-28 h-28 rounded-full border-2 border-purple-400/40 animate-ping animation-delay-200"></div>
+                            <div className="absolute inset-4 w-24 h-24 rounded-full border-2 border-pink-400/50 animate-ping animation-delay-400"></div>
+
+                            {/* Central voice bars */}
+                            <div className="relative w-32 h-32 flex items-center justify-center">
+                              <div className="flex items-end space-x-1">
+                                {[...Array(7)].map((_, i) => (
+                                  <div
+                                    key={i}
+                                    className="bg-gradient-to-t from-blue-500 via-purple-500 to-pink-500 rounded-full"
+                                    style={{
+                                      width: '4px',
+                                      height: `${Math.random() * 40 + 20}px`,
+                                      animationDelay: `${i * 100}ms`,
+                                      animation: 'voiceBar 1.5s ease-in-out infinite alternate'
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Microphone icon in center */}
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+                                <span className="text-2xl">🎤</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Status text */}
+                          <div className="text-white text-xl font-medium animate-pulse">
+                            Listening...
+                          </div>
+
+                          {/* Stop button */}
+                          <button
+                            onClick={() => {
+                              try {
+                                if (annyang) annyang.abort();
+                              } catch {}
+                              setIsChatListening(false);
+                              setStatus('');
+                            }}
+                            className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-full font-medium transition-all duration-200 transform hover:scale-105"
+                          >
+                            Stop Listening
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-4">
+                      {/* Full Width Input */}
+                      <div className="w-full">
                         <input
                           type="text"
                           value={chatInput}
                           onChange={(e) => setChatInput(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
-                          className="w-full bg-slate-700 border border-slate-600 rounded-xl p-3 pr-12 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                          placeholder="Ask about your itinerary or request changes..."
+                          onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
+                          className="w-full bg-slate-700 border border-slate-600 rounded-xl p-4 text-white text-lg placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                          placeholder="💡 Try: &quot;Add a restaurant&quot;, &quot;What's nearby?&quot;, or &quot;Best route?&quot;"
                         />
-                        <button
-                          onClick={startChatListening}
-                          disabled={isChatListening}
-                          className={`absolute top-2 right-2 w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
-                            isChatListening
-                              ? 'bg-red-600 hover:bg-red-700 animate-pulse text-white'
-                              : 'bg-purple-600 hover:bg-purple-700 text-white hover:scale-110'
-                          } disabled:opacity-50`}
-                          title={isChatListening ? 'Listening...' : 'Start Speaking'}
-                        >
-                          🎤
-                        </button>
                       </div>
-                      <button
-                        onClick={sendChatMessage}
-                        disabled={!chatInput.trim()}
-                        className="px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        ✨ Send
-                      </button>
-                    </div>
 
-                    <div className="mt-3 text-xs text-slate-400 text-center">
-                      💡 Try asking: "Add a restaurant", "Remove a place", "What's nearby?", or "Best order to visit?"
+                      {/* Control Buttons Row */}
+                      <div className="flex gap-3 items-center justify-between">
+                        {/* TTS Toggle Switch - Left Side */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-slate-400">TTS</span>
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              checked={isTTSEnabled}
+                              onChange={() => setIsTTSEnabled(!isTTSEnabled)}
+                              className="sr-only"
+                              id="tts-toggle"
+                            />
+                            <label
+                              htmlFor="tts-toggle"
+                              className={`block w-12 h-6 rounded-full cursor-pointer transition-all duration-200 ${
+                                isTTSEnabled ? 'bg-green-500' : 'bg-slate-600'
+                              }`}
+                              title={isTTSEnabled ? 'Text-to-speech enabled' : 'Text-to-speech disabled'}
+                            >
+                              <div
+                                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200 ${
+                                  isTTSEnabled ? 'translate-x-6' : 'translate-x-0'
+                                }`}
+                              />
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Buttons - Right Side */}
+                        <div className="flex gap-3 items-center">
+                          {/* Voice Button */}
+                          <button
+                            onClick={() => {
+                              if (isChatListening) {
+                                // Stop listening
+                                try {
+                                  if (annyang) annyang.abort();
+                                } catch {}
+                                setIsChatListening(false);
+                                setStatus('');
+                              } else {
+                                // Start listening
+                                startChatListening();
+                              }
+                            }}
+                            className={`px-4 py-3 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg ${
+                              isChatListening
+                                ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse cursor-pointer'
+                                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
+                            }`}
+                            title={isChatListening ? 'Click to stop listening' : 'Use voice to ask'}
+                            aria-label={isChatListening ? 'Stop voice input' : 'Start voice input'}
+                          >
+                            {isChatListening ? '⏹️ Stop' : '🎤 Voice'}
+                          </button>
+
+                          {/* Send Button */}
+                          <button
+                            onClick={sendChatMessage}
+                            disabled={!chatInput.trim()}
+                            className="px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                          >
+                            ✨ Send
+                          </button>
+                        </div>
+                      </div>
+
                     </div>
                   </div>
                 </div>
