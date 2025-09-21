@@ -80,6 +80,8 @@ export default function App() {
   const chatInputRef = useRef<HTMLInputElement | null>(null); // Reference to chat input for focusing
   const [isDayMode, setIsDayMode] = useState(false); // false = night mode (default)
   const [isTTSEnabled, setIsTTSEnabled] = useState(false); // Text-to-speech for chatbot responses
+  const [isContinuousListening, setIsContinuousListening] = useState(false); // Continuous listening mode
+  const continuousListeningRef = useRef(false); // Ref to track continuous listening mode
 
   // Add CSS for better map readability and voice animations
   useEffect(() => {
@@ -1067,6 +1069,7 @@ export default function App() {
 
   const startChatListening = () => {
     if (!annyang) return setStatus('Speech not supported');
+    console.log('🎤 Starting chat listening, continuous mode:', isContinuousListening);
     setIsChatListening(true);
     setStatus('Listening...');
     annyang.setLanguage('en-US');
@@ -1078,7 +1081,10 @@ export default function App() {
       if (phrases && phrases.length) {
         const command = phrases[0];
         setStatus('Transcribed: ' + command);
-        setIsChatListening(false);
+        // Only stop listening if not in continuous mode
+        if (!continuousListeningRef.current) {
+          setIsChatListening(false);
+        }
         try { annyang.abort(); } catch {}
 
         // Auto-submit after a brief delay to show transcription
@@ -1130,6 +1136,27 @@ export default function App() {
                 speakText(botMessage.message);
               }
               setStatus('');
+              
+              // Manage listening state after response
+              if (continuousListeningRef.current) {
+                console.log('🔄 Continuous listening enabled, will restart after response');
+                setTimeout(() => {
+                  if (isTTSEnabled) {
+                    // Wait for TTS to complete before starting next listening
+                    setTimeout(() => {
+                      console.log('🔄 Restarting listening after TTS delay');
+                      startChatListening();
+                    }, 2000); // 2 second delay after TTS
+                  } else {
+                    // Start listening immediately if TTS is disabled
+                    console.log('🔄 Restarting listening immediately (TTS disabled)');
+                    startChatListening();
+                  }
+                }, 500); // Small delay to ensure UI updates
+              } else {
+                console.log('🔄 Continuous listening disabled, stopping listening');
+                setIsChatListening(false);
+              }
             } catch (error) {
               const errorMessage = {
                 type: 'bot' as const,
@@ -1221,6 +1248,27 @@ export default function App() {
       }
 
       setStatus('');
+      
+      // Manage listening state after response
+      if (continuousListeningRef.current) {
+        console.log('🔄 Continuous listening enabled, will restart after response (sendChatMessage)');
+        setTimeout(() => {
+          if (isTTSEnabled) {
+            // Wait for TTS to complete before starting next listening
+            setTimeout(() => {
+              console.log('🔄 Restarting listening after TTS delay (sendChatMessage)');
+              startChatListening();
+            }, 2000); // 2 second delay after TTS
+          } else {
+            // Start listening immediately if TTS is disabled
+            console.log('🔄 Restarting listening immediately (TTS disabled, sendChatMessage)');
+            startChatListening();
+          }
+        }, 500); // Small delay to ensure UI updates
+      } else {
+        console.log('🔄 Continuous listening disabled, stopping listening (sendChatMessage)');
+        setIsChatListening(false);
+      }
     } catch (error) {
       const errorMessage = { 
         type: 'bot' as const, 
@@ -1242,6 +1290,23 @@ export default function App() {
       }
 
       setStatus('Error processing request');
+      
+      // Manage listening state after error response
+      if (continuousListeningRef.current) {
+        setTimeout(() => {
+          if (isTTSEnabled) {
+            // Wait for TTS to complete before starting next listening
+            setTimeout(() => {
+              startChatListening();
+            }, 2000); // 2 second delay after TTS
+          } else {
+            // Start listening immediately if TTS is disabled
+            startChatListening();
+          }
+        }, 500); // Small delay to ensure UI updates
+      } else {
+        setIsChatListening(false);
+      }
     }
   };
 
@@ -1427,7 +1492,7 @@ export default function App() {
                   </div>
 
                   {/* Chat Messages - Flexible Height */}
-                  <div className="bg-slate-700/60 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-slate-600 scrollbar-hide">
+                  <div className="bg-slate-700/60 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-slate-600 scrollbar-hide relative">
                     {chatMessages.length === 0 ? (
                       <div className="text-center text-slate-400 py-8">
                         <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -1485,65 +1550,47 @@ export default function App() {
                         <div ref={chatMessagesEndRef} />
                       </div>
                     )}
+
                   </div>
 
                   {/* Chat Input - Fixed at Bottom */}
                   <div className="p-6 pt-4 flex-shrink-0">
-                    {/* Siri-like Voice Animation Overlay */}
+                    {/* Small Listening Indicator - Above text input */}
                     {isChatListening && (
-                      <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-50 flex items-center justify-center">
-                        <div className="flex flex-col items-center space-y-6">
-                          {/* Siri-like Animation */}
-                          <div className="relative">
-                            {/* Outer rings */}
-                            <div className="absolute inset-0 w-32 h-32 rounded-full border-2 border-blue-400/30 animate-ping"></div>
-                            <div className="absolute inset-2 w-28 h-28 rounded-full border-2 border-purple-400/40 animate-ping animation-delay-200"></div>
-                            <div className="absolute inset-4 w-24 h-24 rounded-full border-2 border-pink-400/50 animate-ping animation-delay-400"></div>
-
-                            {/* Central voice bars */}
-                            <div className="relative w-32 h-32 flex items-center justify-center">
-                              <div className="flex items-end space-x-1">
-                                {[...Array(7)].map((_, i) => (
-                                  <div
-                                    key={i}
-                                    className="bg-gradient-to-t from-blue-500 via-purple-500 to-pink-500 rounded-full"
-                                    style={{
-                                      width: '4px',
-                                      height: `${Math.random() * 40 + 20}px`,
-                                      animationDelay: `${i * 100}ms`,
-                                      animation: 'voiceBar 1.5s ease-in-out infinite alternate'
-                                    }}
-                                  />
-                                ))}
+                      <div className="mb-4 flex justify-end">
+                        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-full p-3 shadow-lg border border-white/20 backdrop-blur-sm">
+                          <div className="flex items-center space-x-3">
+                            {/* Animated microphone icon */}
+                            <div className="relative">
+                              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+                                <span className="text-white text-lg">🎤</span>
                               </div>
+                              {/* Pulsing ring */}
+                              <div className="absolute inset-0 w-8 h-8 rounded-full border-2 border-white/40 animate-ping"></div>
                             </div>
-
-                            {/* Microphone icon in center */}
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
-                                <span className="text-2xl">🎤</span>
-                              </div>
+                            
+                            {/* Status text */}
+                            <div className="text-white text-sm font-medium">
+                              Listening...
                             </div>
+                            
+                            {/* Stop button */}
+                            <button
+                              onClick={() => {
+                                try {
+                                  if (annyang) annyang.abort();
+                                } catch {}
+                                setIsChatListening(false);
+                                setIsContinuousListening(false);
+                                continuousListeningRef.current = false;
+                                setStatus('');
+                              }}
+                              className="w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white text-xs transition-colors duration-200"
+                              title="Stop listening"
+                            >
+                              ⏹️
+                            </button>
                           </div>
-
-                          {/* Status text */}
-                          <div className="text-white text-xl font-medium animate-pulse">
-                            Listening...
-                          </div>
-
-                          {/* Stop button */}
-                          <button
-                            onClick={() => {
-                              try {
-                                if (annyang) annyang.abort();
-                              } catch {}
-                              setIsChatListening(false);
-                              setStatus('');
-                            }}
-                            className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-full font-medium transition-all duration-200 transform hover:scale-105"
-                          >
-                            Stop Listening
-                          </button>
                         </div>
                       </div>
                     )}
@@ -1567,6 +1614,11 @@ export default function App() {
                         {/* TTS Toggle Switch - Left Side */}
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-slate-400">TTS</span>
+                          {isContinuousListening && (
+                            <span className="text-xs text-green-400 bg-green-600/20 px-2 py-1 rounded">
+                              🔄 Continuous
+                            </span>
+                          )}
                           <div className="relative">
                             <input
                               type="checkbox"
@@ -1593,31 +1645,41 @@ export default function App() {
 
                         {/* Buttons - Right Side */}
                         <div className="flex gap-3 items-center">
-                          {/* Voice Button */}
+                          {/* Voice Button - Hidden when listening or processing */}
+                          {!isChatListening && !status.includes('Processing') && (
                           <button
                             onClick={() => {
                               if (isChatListening) {
-                                // Stop listening
+                                // Stop listening and continuous mode
+                                console.log('🛑 Stopping continuous listening');
                                 try {
                                   if (annyang) annyang.abort();
                                 } catch {}
                                 setIsChatListening(false);
+                                setIsContinuousListening(false);
+                                continuousListeningRef.current = false;
                                 setStatus('');
                               } else {
-                                // Start listening
+                                // Start listening and enable continuous mode
+                                console.log('🔄 Starting continuous listening mode');
+                                setIsContinuousListening(true);
+                                continuousListeningRef.current = true;
                                 startChatListening();
                               }
                             }}
                             className={`px-4 py-3 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg ${
                               isChatListening
-                                ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse cursor-pointer'
+                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white animate-pulse'
+                                : isContinuousListening
+                                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
                                 : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
                             }`}
-                            title={isChatListening ? 'Click to stop listening' : 'Use voice to ask'}
+                            title={isChatListening ? 'Click to stop listening' : isContinuousListening ? 'Continuous listening enabled' : 'Use voice to ask'}
                             aria-label={isChatListening ? 'Stop voice input' : 'Start voice input'}
                           >
-                            {isChatListening ? '⏹️ Stop' : '🎤 Voice'}
+                            🎤 Ask Trippy
                           </button>
+                          )}
 
                           {/* Send Button */}
                           <button
@@ -1632,6 +1694,7 @@ export default function App() {
 
                     </div>
                   </div>
+
                 </div>
               </div>
             )}
