@@ -129,23 +129,14 @@ export default function App() {
       .processing-dot:nth-child(2) { animation-delay: 200ms; }
       .processing-dot:nth-child(3) { animation-delay: 400ms; }
 
-      /* Custom scrollbar for chat */
-      .chat-scrollbar::-webkit-scrollbar {
-        width: 6px;
+      /* Hide scrollbar for chat messages */
+      .chat-messages::-webkit-scrollbar {
+        display: none;
       }
-
-      .chat-scrollbar::-webkit-scrollbar-track {
-        background: rgba(51, 65, 85, 0.5);
-        border-radius: 3px;
-      }
-
-      .chat-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(148, 163, 184, 0.5);
-        border-radius: 3px;
-      }
-
-      .chat-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: rgba(148, 163, 184, 0.7);
+      
+      .chat-messages {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
     `;
     document.head.appendChild(style);
@@ -1492,7 +1483,7 @@ export default function App() {
                   </div>
 
                   {/* Chat Messages - Flexible Height */}
-                  <div className="bg-slate-700/60 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-slate-600 scrollbar-hide relative">
+                  <div className="bg-slate-700/60 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-slate-600 relative chat-messages">
                     {chatMessages.length === 0 ? (
                       <div className="text-center text-slate-400 py-8">
                         <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -1614,11 +1605,6 @@ export default function App() {
                         {/* TTS Toggle Switch - Left Side */}
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-slate-400">TTS</span>
-                          {isContinuousListening && (
-                            <span className="text-xs text-green-400 bg-green-600/20 px-2 py-1 rounded">
-                              🔄 Continuous
-                            </span>
-                          )}
                           <div className="relative">
                             <input
                               type="checkbox"
