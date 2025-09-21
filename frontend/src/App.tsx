@@ -76,6 +76,7 @@ export default function App() {
   const [isNarrationEnabled, setIsNarrationEnabled] = useState(true);
   const narratedPlacesRef = useRef<Set<string>>(new Set());
   const speechRecognitionRef = useRef<any>(null); // Store reference to current speech recognition
+  const chatInputRef = useRef<HTMLInputElement | null>(null); // Reference to chat input for focusing
   const [isDayMode, setIsDayMode] = useState(false); // false = night mode (default)
   const [isTTSEnabled, setIsTTSEnabled] = useState(true); // Text-to-speech for chatbot responses
 
@@ -763,6 +764,10 @@ export default function App() {
 
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl);
+          // Focus chat input after TTS completes
+          setTimeout(() => {
+            chatInputRef.current?.focus();
+          }, 100);
         };
 
         console.log('🔊 GTTS audio playing');
@@ -796,10 +801,22 @@ export default function App() {
         utterance.voice = preferredVoice;
       }
 
-      // Add event listeners for debugging
+      // Add event listeners for debugging and focus management
       utterance.onstart = () => console.log('🔊 Browser TTS started');
-      utterance.onend = () => console.log('🔇 Browser TTS ended');
-      utterance.onerror = (e) => console.error('❌ Browser TTS error:', e);
+      utterance.onend = () => {
+        console.log('🔇 Browser TTS ended');
+        // Focus chat input after TTS completes
+        setTimeout(() => {
+          chatInputRef.current?.focus();
+        }, 100);
+      };
+      utterance.onerror = (e) => {
+        console.error('❌ Browser TTS error:', e);
+        // Focus chat input even on error
+        setTimeout(() => {
+          chatInputRef.current?.focus();
+        }, 100);
+      };
 
       speechSynthesis.speak(utterance);
     }
@@ -1120,10 +1137,17 @@ export default function App() {
         timestamp: new Date() 
       };
       setChatMessages(prev => [...prev, botMessage]);
-      
+
       // Speak the bot response
       speakText(botMessage.message);
-      
+
+      // If TTS is disabled, focus the input immediately
+      if (!isTTSEnabled) {
+        setTimeout(() => {
+          chatInputRef.current?.focus();
+        }, 100);
+      }
+
       setStatus('');
     } catch (error) {
       const errorMessage = { 
@@ -1132,10 +1156,17 @@ export default function App() {
         timestamp: new Date() 
       };
       setChatMessages(prev => [...prev, errorMessage]);
-      
+
       // Speak the error message
       speakText(errorMessage.message);
-      
+
+      // If TTS is disabled, focus the input immediately
+      if (!isTTSEnabled) {
+        setTimeout(() => {
+          chatInputRef.current?.focus();
+        }, 100);
+      }
+
       setStatus('Error processing request');
     }
   };
@@ -1447,6 +1478,7 @@ export default function App() {
                       {/* Full Width Input */}
                       <div className="w-full">
                         <input
+                          ref={chatInputRef}
                           type="text"
                           value={chatInput}
                           onChange={(e) => setChatInput(e.target.value)}
