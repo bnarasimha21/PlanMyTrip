@@ -3,9 +3,14 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 // @ts-ignore annyang has imperfect types
 import annyang from 'annyang';
+import ReactMarkdown from 'react-markdown';
 
 const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000';
 const MAPBOX_TOKEN = (import.meta as any).env.VITE_MAPBOX_TOKEN || '';
+
+if (!MAPBOX_TOKEN) {
+  console.error('❌ MAPBOX_TOKEN is not set! Please add VITE_MAPBOX_TOKEN to your .env file');
+}
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
@@ -65,6 +70,7 @@ export default function App() {
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   const [chatInput, setChatInput] = useState('');
   const [isChatListening, setIsChatListening] = useState(false);
+  const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
   const [hasGeneratedItinerary, setHasGeneratedItinerary] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [animationRoute, setAnimationRoute] = useState<number[][]>([]);
@@ -78,7 +84,9 @@ export default function App() {
   const speechRecognitionRef = useRef<any>(null); // Store reference to current speech recognition
   const chatInputRef = useRef<HTMLInputElement | null>(null); // Reference to chat input for focusing
   const [isDayMode, setIsDayMode] = useState(false); // false = night mode (default)
-  const [isTTSEnabled, setIsTTSEnabled] = useState(true); // Text-to-speech for chatbot responses
+  const [isTTSEnabled, setIsTTSEnabled] = useState(false); // Text-to-speech for chatbot responses
+  const [isContinuousListening, setIsContinuousListening] = useState(false); // Continuous listening mode
+  const continuousListeningRef = useRef(false); // Ref to track continuous listening mode
 
   // Add CSS for better map readability and voice animations
   useEffect(() => {
@@ -126,23 +134,14 @@ export default function App() {
       .processing-dot:nth-child(2) { animation-delay: 200ms; }
       .processing-dot:nth-child(3) { animation-delay: 400ms; }
 
-      /* Custom scrollbar for chat */
-      .chat-scrollbar::-webkit-scrollbar {
-        width: 6px;
+      /* Hide scrollbar for chat messages */
+      .chat-messages::-webkit-scrollbar {
+        display: none;
       }
-
-      .chat-scrollbar::-webkit-scrollbar-track {
-        background: rgba(51, 65, 85, 0.5);
-        border-radius: 3px;
-      }
-
-      .chat-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(148, 163, 184, 0.5);
-        border-radius: 3px;
-      }
-
-      .chat-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: rgba(148, 163, 184, 0.7);
+      
+      .chat-messages {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
     `;
     document.head.appendChild(style);
@@ -998,6 +997,9 @@ export default function App() {
     setStatus('Listening...');
     annyang.setLanguage('en-US');
     annyang.removeCommands();
+    // Clear any existing callbacks to prevent conflicts
+    annyang.removeCallback('result');
+    annyang.removeCallback('end');
     annyang.addCallback('result', (phrases: string[]) => {
       if (phrases && phrases.length) {
         setTripRequest(phrases[0]);
@@ -1063,16 +1065,99 @@ export default function App() {
 
   const startChatListening = () => {
     if (!annyang) return setStatus('Speech not supported');
+    console.log('🎤 Starting chat listening, continuous mode:', isContinuousListening);
     setIsChatListening(true);
     setStatus('Listening...');
     annyang.setLanguage('en-US');
     annyang.removeCommands();
+    // Clear any existing callbacks to prevent conflicts
+    annyang.removeCallback('result');
+    annyang.removeCallback('end');
     annyang.addCallback('result', (phrases: string[]) => {
       if (phrases && phrases.length) {
-        setChatInput(phrases[0]);
-        setStatus('');
-        setIsChatListening(false);
+        const command = phrases[0];
+        setStatus('Transcribed: ' + command);
+        // In continuous mode, keep listening indefinitely
+        // Only stop listening if not in continuous mode
+        if (!continuousListeningRef.current) {
+          setIsChatListening(false);
+        }
         try { annyang.abort(); } catch {}
+
+        // Auto-submit after a brief delay to show transcription
+        setTimeout(async () => {
+          if (command.trim() && extracted && !isAutoSubmitting) {
+            console.log('🚀 Auto-submitting voice input:', command);
+            setIsAutoSubmitting(true);
+
+            // Create user message
+            const userMessage = { type: 'user' as const, message: command, timestamp: new Date() };
+            setChatMessages(prev => [...prev, userMessage]);
+
+            // Set processing status
+            setStatus('Processing...');
+
+            try {
+              // Send to backend
+              const resp = await fetch(`${API_BASE}/modify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  city: extracted.city,
+                  interests: extracted.interests,
+                  days: extracted.days,
+                  places,
+                  instruction: command,
+                  original_request: tripRequest,
+                  chat_history: chatMessages.map(msg => ({
+                    type: msg.type,
+                    message: msg.message,
+                    timestamp: msg.timestamp.toISOString()
+                  }))
+                }),
+              });
+              const data = await resp.json();
+
+              if (data.type === 'modification') {
+                setPlaces(data.places || []);
+              }
+
+              const botMessage = {
+                type: 'bot' as const,
+                message: data.response || "I've processed your request.",
+                timestamp: new Date()
+              };
+              setChatMessages(prev => [...prev, botMessage]);
+
+              if (isTTSEnabled) {
+                speakText(botMessage.message);
+              }
+              setStatus('');
+              
+              // Manage listening state after response
+              if (continuousListeningRef.current) {
+                console.log('🔄 Continuous listening enabled, restarting immediately');
+                // Restart listening immediately without delays
+                setTimeout(() => {
+                  startChatListening();
+                }, 100);
+              } else {
+                console.log('🔄 Continuous listening disabled, stopping listening');
+                setIsChatListening(false);
+              }
+            } catch (error) {
+              const errorMessage = {
+                type: 'bot' as const,
+                message: 'Sorry, I encountered an error while processing your request.',
+                timestamp: new Date()
+              };
+              setChatMessages(prev => [...prev, errorMessage]);
+              setStatus('Error processing request');
+            } finally {
+              setIsAutoSubmitting(false);
+            }
+          }
+        }, 1000);
       }
     });
     annyang.addCallback('end', () => {
@@ -1083,7 +1168,7 @@ export default function App() {
   };
 
   const sendChatMessage = async () => {
-    if (!chatInput.trim() || !extracted) return;
+    if (!chatInput.trim() || !extracted || isAutoSubmitting) return;
     
     const userMessage = { type: 'user' as const, message: chatInput, timestamp: new Date() };
     setChatMessages(prev => [...prev, userMessage]);
@@ -1139,7 +1224,9 @@ export default function App() {
       setChatMessages(prev => [...prev, botMessage]);
 
       // Speak the bot response
-      speakText(botMessage.message);
+      if (isTTSEnabled) {
+        speakText(botMessage.message);
+      }
 
       // If TTS is disabled, focus the input immediately
       if (!isTTSEnabled) {
@@ -1149,6 +1236,19 @@ export default function App() {
       }
 
       setStatus('');
+      
+      // Manage listening state after response
+      if (continuousListeningRef.current) {
+        console.log('🔄 Continuous listening enabled, will restart after response (sendChatMessage)');
+        // Restart listening immediately without delays
+        setTimeout(() => {
+          console.log('🔄 Restarting listening immediately (sendChatMessage)');
+          startChatListening();
+        }, 100);
+      } else {
+        console.log('🔄 Continuous listening disabled, stopping listening (sendChatMessage)');
+        setIsChatListening(false);
+      }
     } catch (error) {
       const errorMessage = { 
         type: 'bot' as const, 
@@ -1158,7 +1258,9 @@ export default function App() {
       setChatMessages(prev => [...prev, errorMessage]);
 
       // Speak the error message
-      speakText(errorMessage.message);
+      if (isTTSEnabled) {
+        speakText(errorMessage.message);
+      }
 
       // If TTS is disabled, focus the input immediately
       if (!isTTSEnabled) {
@@ -1168,6 +1270,18 @@ export default function App() {
       }
 
       setStatus('Error processing request');
+      
+      // Manage listening state after error response
+      if (continuousListeningRef.current) {
+        console.log('🔄 Continuous listening enabled, restarting after error');
+        // Restart listening immediately without delays
+        setTimeout(() => {
+          startChatListening();
+        }, 100);
+      } else {
+        console.log('🔄 Continuous listening disabled, stopping listening (error)');
+        setIsChatListening(false);
+      }
     }
   };
 
@@ -1353,7 +1467,7 @@ export default function App() {
                   </div>
 
                   {/* Chat Messages - Flexible Height */}
-                  <div className="bg-slate-700/60 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-slate-600 scrollbar-hide">
+                  <div className="bg-slate-700/60 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-slate-600 relative chat-messages">
                     {chatMessages.length === 0 ? (
                       <div className="text-center text-slate-400 py-8">
                         <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -1371,7 +1485,30 @@ export default function App() {
                                 ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white ml-8 shadow-lg' 
                                 : 'bg-gradient-to-r from-slate-600 to-slate-700 text-white mr-8 shadow-lg'
                             }`}>
-                              <p className="text-base">{msg.message}</p>
+                              {msg.type === 'bot' ? (
+                                <div className="text-base prose prose-invert prose-sm max-w-none">
+                                  <ReactMarkdown
+                                    components={{
+                                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                      ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                                      ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                                      li: ({ children }) => <li className="text-sm">{children}</li>,
+                                      strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+                                      em: ({ children }) => <em className="italic">{children}</em>,
+                                      code: ({ children }) => <code className="bg-slate-800 px-1 py-0.5 rounded text-xs font-mono text-green-300">{children}</code>,
+                                      pre: ({ children }) => <pre className="bg-slate-800 p-2 rounded text-xs font-mono text-green-300 overflow-x-auto mb-2">{children}</pre>,
+                                      blockquote: ({ children }) => <blockquote className="border-l-4 border-blue-400 pl-3 italic text-blue-200 mb-2">{children}</blockquote>,
+                                      h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2">{children}</h1>,
+                                      h2: ({ children }) => <h2 className="text-base font-bold text-white mb-2">{children}</h2>,
+                                      h3: ({ children }) => <h3 className="text-sm font-bold text-white mb-1">{children}</h3>,
+                                    }}
+                                  >
+                                    {msg.message}
+                                  </ReactMarkdown>
+                                </div>
+                              ) : (
+                                <p className="text-base">{msg.message}</p>
+                              )}
                               <p className="text-sm opacity-70 mt-1">
                                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </p>
@@ -1411,65 +1548,47 @@ export default function App() {
                         <div ref={chatMessagesEndRef} />
                       </div>
                     )}
+
                   </div>
 
                   {/* Chat Input - Fixed at Bottom */}
                   <div className="p-6 pt-4 flex-shrink-0">
-                    {/* Siri-like Voice Animation Overlay */}
+                    {/* Small Listening Indicator - Above text input */}
                     {isChatListening && (
-                      <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-50 flex items-center justify-center">
-                        <div className="flex flex-col items-center space-y-6">
-                          {/* Siri-like Animation */}
-                          <div className="relative">
-                            {/* Outer rings */}
-                            <div className="absolute inset-0 w-32 h-32 rounded-full border-2 border-blue-400/30 animate-ping"></div>
-                            <div className="absolute inset-2 w-28 h-28 rounded-full border-2 border-purple-400/40 animate-ping animation-delay-200"></div>
-                            <div className="absolute inset-4 w-24 h-24 rounded-full border-2 border-pink-400/50 animate-ping animation-delay-400"></div>
-
-                            {/* Central voice bars */}
-                            <div className="relative w-32 h-32 flex items-center justify-center">
-                              <div className="flex items-end space-x-1">
-                                {[...Array(7)].map((_, i) => (
-                                  <div
-                                    key={i}
-                                    className="bg-gradient-to-t from-blue-500 via-purple-500 to-pink-500 rounded-full"
-                                    style={{
-                                      width: '4px',
-                                      height: `${Math.random() * 40 + 20}px`,
-                                      animationDelay: `${i * 100}ms`,
-                                      animation: 'voiceBar 1.5s ease-in-out infinite alternate'
-                                    }}
-                                  />
-                                ))}
+                      <div className="mb-4 flex justify-end">
+                        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-full p-3 shadow-lg border border-white/20 backdrop-blur-sm">
+                          <div className="flex items-center space-x-3">
+                            {/* Animated microphone icon */}
+                            <div className="relative">
+                              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+                                <span className="text-white text-lg">🎤</span>
                               </div>
+                              {/* Pulsing ring */}
+                              <div className="absolute inset-0 w-8 h-8 rounded-full border-2 border-white/40 animate-ping"></div>
                             </div>
-
-                            {/* Microphone icon in center */}
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
-                                <span className="text-2xl">🎤</span>
-                              </div>
+                            
+                            {/* Status text */}
+                            <div className="text-white text-sm font-medium">
+                              Listening...
                             </div>
+                            
+                            {/* Stop button */}
+                            <button
+                              onClick={() => {
+                                try {
+                                  if (annyang) annyang.abort();
+                                } catch {}
+                                setIsChatListening(false);
+                                setIsContinuousListening(false);
+                                continuousListeningRef.current = false;
+                                setStatus('');
+                              }}
+                              className="w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white text-xs transition-colors duration-200"
+                              title="Stop listening"
+                            >
+                              ⏹️
+                            </button>
                           </div>
-
-                          {/* Status text */}
-                          <div className="text-white text-xl font-medium animate-pulse">
-                            Listening...
-                          </div>
-
-                          {/* Stop button */}
-                          <button
-                            onClick={() => {
-                              try {
-                                if (annyang) annyang.abort();
-                              } catch {}
-                              setIsChatListening(false);
-                              setStatus('');
-                            }}
-                            className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-full font-medium transition-all duration-200 transform hover:scale-105"
-                          >
-                            Stop Listening
-                          </button>
                         </div>
                       </div>
                     )}
@@ -1519,31 +1638,37 @@ export default function App() {
 
                         {/* Buttons - Right Side */}
                         <div className="flex gap-3 items-center">
-                          {/* Voice Button */}
+                          {/* Voice Button - Hidden when listening or processing */}
+                          {!isChatListening && !status.includes('Processing') && (
                           <button
                             onClick={() => {
                               if (isChatListening) {
-                                // Stop listening
-                                try {
-                                  if (annyang) annyang.abort();
-                                } catch {}
+                                console.log('🛑 Stopping continuous listening');
+                                try { if (annyang) annyang.abort(); } catch {}
                                 setIsChatListening(false);
+                                setIsContinuousListening(false);
+                                continuousListeningRef.current = false;
                                 setStatus('');
                               } else {
-                                // Start listening
+                                console.log('🔄 Starting continuous listening mode');
+                                setIsContinuousListening(true);
+                                continuousListeningRef.current = true;
                                 startChatListening();
                               }
                             }}
                             className={`px-4 py-3 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg ${
                               isChatListening
-                                ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse cursor-pointer'
+                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white animate-pulse'
+                                : isContinuousListening
+                                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
                                 : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
                             }`}
-                            title={isChatListening ? 'Click to stop listening' : 'Use voice to ask'}
+                            title={isChatListening ? 'Click to stop listening' : isContinuousListening ? 'Continuous listening enabled' : 'Use voice to ask'}
                             aria-label={isChatListening ? 'Stop voice input' : 'Start voice input'}
                           >
-                            {isChatListening ? '⏹️ Stop' : '🎤 Voice'}
+                            🎤 Ask Trippy
                           </button>
+                          )}
 
                           {/* Send Button */}
                           <button
@@ -1558,6 +1683,7 @@ export default function App() {
 
                     </div>
                   </div>
+
                 </div>
               </div>
             )}
