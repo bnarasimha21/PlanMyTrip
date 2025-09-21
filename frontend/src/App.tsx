@@ -3,9 +3,14 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 // @ts-ignore annyang has imperfect types
 import annyang from 'annyang';
+import ReactMarkdown from 'react-markdown';
 
 const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000';
 const MAPBOX_TOKEN = (import.meta as any).env.VITE_MAPBOX_TOKEN || '';
+
+if (!MAPBOX_TOKEN) {
+  console.error('❌ MAPBOX_TOKEN is not set! Please add VITE_MAPBOX_TOKEN to your .env file');
+}
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
@@ -1072,6 +1077,7 @@ export default function App() {
       if (phrases && phrases.length) {
         const command = phrases[0];
         setStatus('Transcribed: ' + command);
+        // In continuous mode, keep listening indefinitely
         // Only stop listening if not in continuous mode
         if (!continuousListeningRef.current) {
           setIsChatListening(false);
@@ -1130,20 +1136,11 @@ export default function App() {
               
               // Manage listening state after response
               if (continuousListeningRef.current) {
-                console.log('🔄 Continuous listening enabled, will restart after response');
+                console.log('🔄 Continuous listening enabled, restarting immediately');
+                // Restart listening immediately without delays
                 setTimeout(() => {
-                  if (isTTSEnabled) {
-                    // Wait for TTS to complete before starting next listening
-                    setTimeout(() => {
-                      console.log('🔄 Restarting listening after TTS delay');
-                      startChatListening();
-                    }, 2000); // 2 second delay after TTS
-                  } else {
-                    // Start listening immediately if TTS is disabled
-                    console.log('🔄 Restarting listening immediately (TTS disabled)');
-                    startChatListening();
-                  }
-                }, 500); // Small delay to ensure UI updates
+                  startChatListening();
+                }, 100);
               } else {
                 console.log('🔄 Continuous listening disabled, stopping listening');
                 setIsChatListening(false);
@@ -1243,19 +1240,11 @@ export default function App() {
       // Manage listening state after response
       if (continuousListeningRef.current) {
         console.log('🔄 Continuous listening enabled, will restart after response (sendChatMessage)');
+        // Restart listening immediately without delays
         setTimeout(() => {
-          if (isTTSEnabled) {
-            // Wait for TTS to complete before starting next listening
-            setTimeout(() => {
-              console.log('🔄 Restarting listening after TTS delay (sendChatMessage)');
-              startChatListening();
-            }, 2000); // 2 second delay after TTS
-          } else {
-            // Start listening immediately if TTS is disabled
-            console.log('🔄 Restarting listening immediately (TTS disabled, sendChatMessage)');
-            startChatListening();
-          }
-        }, 500); // Small delay to ensure UI updates
+          console.log('🔄 Restarting listening immediately (sendChatMessage)');
+          startChatListening();
+        }, 100);
       } else {
         console.log('🔄 Continuous listening disabled, stopping listening (sendChatMessage)');
         setIsChatListening(false);
@@ -1284,18 +1273,13 @@ export default function App() {
       
       // Manage listening state after error response
       if (continuousListeningRef.current) {
+        console.log('🔄 Continuous listening enabled, restarting after error');
+        // Restart listening immediately without delays
         setTimeout(() => {
-          if (isTTSEnabled) {
-            // Wait for TTS to complete before starting next listening
-            setTimeout(() => {
-              startChatListening();
-            }, 2000); // 2 second delay after TTS
-          } else {
-            // Start listening immediately if TTS is disabled
-            startChatListening();
-          }
-        }, 500); // Small delay to ensure UI updates
+          startChatListening();
+        }, 100);
       } else {
+        console.log('🔄 Continuous listening disabled, stopping listening (error)');
         setIsChatListening(false);
       }
     }
@@ -1501,7 +1485,30 @@ export default function App() {
                                 ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white ml-8 shadow-lg' 
                                 : 'bg-gradient-to-r from-slate-600 to-slate-700 text-white mr-8 shadow-lg'
                             }`}>
-                              <p className="text-base">{msg.message}</p>
+                              {msg.type === 'bot' ? (
+                                <div className="text-base prose prose-invert prose-sm max-w-none">
+                                  <ReactMarkdown
+                                    components={{
+                                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                      ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                                      ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                                      li: ({ children }) => <li className="text-sm">{children}</li>,
+                                      strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+                                      em: ({ children }) => <em className="italic">{children}</em>,
+                                      code: ({ children }) => <code className="bg-slate-800 px-1 py-0.5 rounded text-xs font-mono text-green-300">{children}</code>,
+                                      pre: ({ children }) => <pre className="bg-slate-800 p-2 rounded text-xs font-mono text-green-300 overflow-x-auto mb-2">{children}</pre>,
+                                      blockquote: ({ children }) => <blockquote className="border-l-4 border-blue-400 pl-3 italic text-blue-200 mb-2">{children}</blockquote>,
+                                      h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2">{children}</h1>,
+                                      h2: ({ children }) => <h2 className="text-base font-bold text-white mb-2">{children}</h2>,
+                                      h3: ({ children }) => <h3 className="text-sm font-bold text-white mb-1">{children}</h3>,
+                                    }}
+                                  >
+                                    {msg.message}
+                                  </ReactMarkdown>
+                                </div>
+                              ) : (
+                                <p className="text-base">{msg.message}</p>
+                              )}
                               <p className="text-sm opacity-70 mt-1">
                                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </p>
@@ -1636,17 +1643,13 @@ export default function App() {
                           <button
                             onClick={() => {
                               if (isChatListening) {
-                                // Stop listening and continuous mode
                                 console.log('🛑 Stopping continuous listening');
-                                try {
-                                  if (annyang) annyang.abort();
-                                } catch {}
+                                try { if (annyang) annyang.abort(); } catch {}
                                 setIsChatListening(false);
                                 setIsContinuousListening(false);
                                 continuousListeningRef.current = false;
                                 setStatus('');
                               } else {
-                                // Start listening and enable continuous mode
                                 console.log('🔄 Starting continuous listening mode');
                                 setIsContinuousListening(true);
                                 continuousListeningRef.current = true;
