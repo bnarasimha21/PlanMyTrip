@@ -51,7 +51,7 @@ class BaseAgent:
             ]
 
             llm_result = self.llm.invoke(messages, temperature=0.5, max_tokens=800)
-            response = llm_result.content.strip()
+            response = llm_result.content.strip() if llm_result.content else ""
 
             # Clean markdown if present
             if response.startswith('```json'):
@@ -62,12 +62,38 @@ class BaseAgent:
                 response = response[:-3]
             response = response.strip()
 
+            # Handle empty or invalid responses
+            if not response:
+                print(f"[FALLBACK] Empty response received")
+                # Return appropriate default for classification
+                if pydantic_model.__name__ == 'ClassificationResponse':
+                    return {'classification': 'question'}
+                return {}
+
             # Parse JSON
             try:
                 import json
-                return json.loads(response)
+                parsed = json.loads(response)
+                return parsed
             except json.JSONDecodeError:
+                print(f"[FALLBACK] JSON parsing failed for response: '{response}'")
+
+                # Try to extract single word responses for classification
+                if pydantic_model.__name__ == 'ClassificationResponse':
+                    response_lower = response.lower()
+                    if 'modification' in response_lower:
+                        return {'classification': 'modification'}
+                    elif 'question' in response_lower:
+                        return {'classification': 'question'}
+
                 # Return default structure based on pydantic model
-                if hasattr(pydantic_model, 'model_fields'):
-                    return {field: None for field in pydantic_model.model_fields.keys()}
-                return {}
+                try:
+                    # Access model_fields from the class itself
+                    if hasattr(pydantic_model, '__annotations__'):
+                        default_response = {field: None for field in pydantic_model.__annotations__.keys()}
+                    else:
+                        default_response = {field: None for field in pydantic_model.model_fields.keys()}
+                    print(f"[FALLBACK] Using default response: {default_response}")
+                    return default_response
+                except (AttributeError, TypeError):
+                    return {}

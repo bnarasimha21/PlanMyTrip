@@ -94,7 +94,7 @@ class SimpleTripPlanningWorkflow:
         state = self.intent_classifier.run(state)
 
         # Run search agent
-        state = self.search_agent.run(state)
+        # state = self.search_agent.run(state)
 
         # Route based on intent
         if state.intent == "question":

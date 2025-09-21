@@ -16,14 +16,14 @@ class ExtractionAgent(BaseAgent):
 
         prompt = f"""Extract travel details from this request: "{trip_request_text}"
 
-Return ONLY a JSON object with these exact keys:
-{{
-  "city": "City Name",
-  "interests": "comma, separated, interests",
-  "days": number
-}}
+        Return ONLY a JSON object with these exact keys:
+        {{
+        "city": "City Name",
+        "interests": "comma, separated, interests",
+        "days": number
+        }}
 
-If any information is missing, use reasonable defaults."""
+        If any information is missing, use reasonable defaults."""
 
         # Create structured chain
         chain = self.create_structured_chain(

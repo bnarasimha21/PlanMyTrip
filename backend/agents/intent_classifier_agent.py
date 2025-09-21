@@ -8,30 +8,31 @@ from agents.models import ClassificationResponse, AgentState
 class IntentClassifierAgent(BaseAgent):
     """Agent responsible for classifying user intent"""
 
-    def classify_user_intent(self, user_input: str, context: str = None) -> str:
+    def classify_user_intent(self, user_input: str) -> str:
         """
         Classify whether user input is a question or modification request
         Returns: 'question' or 'modification'
         """
 
-        prompt = f"""Classify the following user input as either a "question" or a "modification" request for a travel itinerary.
+        prompt = f"""
+        You are a travel planning intent classifier. Analyze the user's input and determine if it's:
+        1. "question" - asking for information, recommendations, or clarification about places, travel, or itinerary
+        2. "modification" - requesting direct changes to an itinerary (add/remove/replace/change places)
 
-USER INPUT: "{user_input}"
+        User input: "{user_input}"
 
-CONTEXT: {context or "User is planning a trip and has an existing itinerary."}
+        Examples:
+        - "What's near the museum?" -> question
+        - "Add a restaurant" -> modification
+        - "Remove the cafe from day 1" -> modification
+        - "Tell me about Paris attractions" -> question
 
-CLASSIFICATION RULES:
-- "question": User is asking for information, advice, recommendations, explanations, or seeking help. This includes questions about availability, possibilities, or general inquiries.
-  Examples: "What's the best time to visit?", "How far is X from Y?", "Which place is better?", "What should I know about X?", "Can I get a scooter rental?", "Is there a good restaurant nearby?", "Where can I find X?"
-
-- "modification": User is giving a direct command or explicit request to change, add, remove, or replace something in their itinerary. Look for imperative verbs and direct instructions.
-  Examples: "Add a restaurant", "Remove the museum", "Replace X with Y", "Include more shopping places", "Put in a scooter rental", "Take out expensive places"
-
-Respond with ONLY one word: "question" or "modification"."""
+        Respond with a JSON object: {{"classification": "question"}} or {{"classification": "modification"}}
+        """
 
         # Create structured chain
         chain = self.create_structured_chain(
-            "You are a precise intent classifier for travel planning. 'question' = asking for information/availability. 'modification' = direct command to change itinerary. Questions about 'can I', 'where can I', 'is there' are ALWAYS questions, not modifications.",
+            "You are a precise intent classifier for travel planning. Analyze the input and return a JSON object with the classification field.",
             ClassificationResponse
         )
 
@@ -40,27 +41,65 @@ Respond with ONLY one word: "question" or "modification"."""
                 chain,
                 prompt,
                 ClassificationResponse,
-                "You are a precise intent classifier for travel planning. Respond with only 'question' or 'modification'."
+                "You are a precise intent classifier. Return JSON with classification field set to either 'question' or 'modification'."
             )
 
-            classification = result.get('classification', '').lower()
+            # Handle different response formats
+            if isinstance(result, dict):
+                classification = (result.get('classification') or '').lower()
+            elif isinstance(result, str):
+                # Handle case where LLM returns just the classification string
+                classification = result.lower()
+            elif result is None:
+                # Handle None response from structured output failure
+                classification = ''
+            else:
+                classification = ''
 
             # Debug logging
-            print(f"[CLASSIFIER] Input: '{user_input}' -> Raw response: '{classification}'")
+            print(f"[CLASSIFIER] Input: '{user_input}' -> Raw response: {result} -> Classification: '{classification}'")
 
             # Ensure we only get valid responses
             if classification in ['question', 'modification']:
                 print(f"[CLASSIFIER] Final classification: {classification}")
                 return classification
             else:
-                # Default to question if unclear
-                print(f"[CLASSIFIER] Invalid response '{classification}', defaulting to 'question'")
-                return 'question'
+                # Use keyword detection as fallback
+                fallback_classification = self._fallback_classification(user_input)
+                print(f"[CLASSIFIER] Invalid response '{classification}', using fallback: {fallback_classification}")
+                return fallback_classification
 
         except Exception as e:
             print(f"Classification error: {e}")
-            # Default to question on error
+            # Use keyword detection as fallback
+            return self._fallback_classification(user_input)
+
+    def _fallback_classification(self, user_input: str) -> str:
+        """Fallback classification using keyword detection"""
+        user_input_lower = user_input.lower()
+
+        # Keywords that indicate modification requests
+        modification_keywords = [
+            'add', 'remove', 'delete', 'replace', 'change', 'modify', 'update',
+            'include', 'exclude', 'swap', 'substitute', 'insert', 'drop'
+        ]
+
+        # Keywords that indicate questions
+        question_keywords = [
+            'what', 'where', 'when', 'how', 'why', 'which', 'who',
+            'is', 'are', 'can', 'could', 'would', 'should', 'tell me', 'explain'
+        ]
+
+        # Check for modification keywords
+        if any(keyword in user_input_lower for keyword in modification_keywords):
+            return 'modification'
+
+        # Check for question keywords
+        if any(keyword in user_input_lower for keyword in question_keywords):
             return 'question'
+
+        # Default to question if unclear
+        return 'question'
 
     def run(self, state: AgentState) -> AgentState:
         """Run the intent classifier agent"""
@@ -68,15 +107,7 @@ Respond with ONLY one word: "question" or "modification"."""
         # For modification requests, we need the instruction from metadata
         user_input = state.metadata.get('instruction', state.query)
 
-        # Build context
-        context = f"User is planning a {state.days}-day trip to {state.city} with interests in {state.interests}. "
-        if state.places:
-            place_names = [p.name for p in state.places[:5]]  # First 5 places for context
-            context += f"Current itinerary includes: {', '.join(place_names)}."
-        else:
-            context += "No places in itinerary yet."
-
-        intent = self.classify_user_intent(user_input, context)
+        intent = self.classify_user_intent(user_input)
         state.intent = intent
 
         return state
