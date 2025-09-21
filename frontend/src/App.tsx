@@ -79,7 +79,7 @@ export default function App() {
   const speechRecognitionRef = useRef<any>(null); // Store reference to current speech recognition
   const chatInputRef = useRef<HTMLInputElement | null>(null); // Reference to chat input for focusing
   const [isDayMode, setIsDayMode] = useState(false); // false = night mode (default)
-  const [isTTSEnabled, setIsTTSEnabled] = useState(true); // Text-to-speech for chatbot responses
+  const [isTTSEnabled, setIsTTSEnabled] = useState(false); // Text-to-speech for chatbot responses
 
   // Add CSS for better map readability and voice animations
   useEffect(() => {
