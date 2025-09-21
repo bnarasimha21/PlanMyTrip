@@ -65,6 +65,7 @@ export default function App() {
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   const [chatInput, setChatInput] = useState('');
   const [isChatListening, setIsChatListening] = useState(false);
+  const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
   const [hasGeneratedItinerary, setHasGeneratedItinerary] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [animationRoute, setAnimationRoute] = useState<number[][]>([]);
@@ -998,6 +999,9 @@ export default function App() {
     setStatus('Listening...');
     annyang.setLanguage('en-US');
     annyang.removeCommands();
+    // Clear any existing callbacks to prevent conflicts
+    annyang.removeCallback('result');
+    annyang.removeCallback('end');
     annyang.addCallback('result', (phrases: string[]) => {
       if (phrases && phrases.length) {
         setTripRequest(phrases[0]);
@@ -1067,12 +1071,78 @@ export default function App() {
     setStatus('Listening...');
     annyang.setLanguage('en-US');
     annyang.removeCommands();
+    // Clear any existing callbacks to prevent conflicts
+    annyang.removeCallback('result');
+    annyang.removeCallback('end');
     annyang.addCallback('result', (phrases: string[]) => {
       if (phrases && phrases.length) {
-        setChatInput(phrases[0]);
-        setStatus('');
+        const command = phrases[0];
+        setStatus('Transcribed: ' + command);
         setIsChatListening(false);
         try { annyang.abort(); } catch {}
+
+        // Auto-submit after a brief delay to show transcription
+        setTimeout(async () => {
+          if (command.trim() && extracted && !isAutoSubmitting) {
+            console.log('🚀 Auto-submitting voice input:', command);
+            setIsAutoSubmitting(true);
+
+            // Create user message
+            const userMessage = { type: 'user' as const, message: command, timestamp: new Date() };
+            setChatMessages(prev => [...prev, userMessage]);
+
+            // Set processing status
+            setStatus('Processing...');
+
+            try {
+              // Send to backend
+              const resp = await fetch(`${API_BASE}/modify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  city: extracted.city,
+                  interests: extracted.interests,
+                  days: extracted.days,
+                  places,
+                  instruction: command,
+                  original_request: tripRequest,
+                  chat_history: chatMessages.map(msg => ({
+                    type: msg.type,
+                    message: msg.message,
+                    timestamp: msg.timestamp.toISOString()
+                  }))
+                }),
+              });
+              const data = await resp.json();
+
+              if (data.type === 'modification') {
+                setPlaces(data.places || []);
+              }
+
+              const botMessage = {
+                type: 'bot' as const,
+                message: data.response || "I've processed your request.",
+                timestamp: new Date()
+              };
+              setChatMessages(prev => [...prev, botMessage]);
+
+              if (isTTSEnabled) {
+                speakText(botMessage.message);
+              }
+              setStatus('');
+            } catch (error) {
+              const errorMessage = {
+                type: 'bot' as const,
+                message: 'Sorry, I encountered an error while processing your request.',
+                timestamp: new Date()
+              };
+              setChatMessages(prev => [...prev, errorMessage]);
+              setStatus('Error processing request');
+            } finally {
+              setIsAutoSubmitting(false);
+            }
+          }
+        }, 1000);
       }
     });
     annyang.addCallback('end', () => {
@@ -1083,7 +1153,7 @@ export default function App() {
   };
 
   const sendChatMessage = async () => {
-    if (!chatInput.trim() || !extracted) return;
+    if (!chatInput.trim() || !extracted || isAutoSubmitting) return;
     
     const userMessage = { type: 'user' as const, message: chatInput, timestamp: new Date() };
     setChatMessages(prev => [...prev, userMessage]);
@@ -1139,7 +1209,9 @@ export default function App() {
       setChatMessages(prev => [...prev, botMessage]);
 
       // Speak the bot response
-      speakText(botMessage.message);
+      if (isTTSEnabled) {
+        speakText(botMessage.message);
+      }
 
       // If TTS is disabled, focus the input immediately
       if (!isTTSEnabled) {
@@ -1158,7 +1230,9 @@ export default function App() {
       setChatMessages(prev => [...prev, errorMessage]);
 
       // Speak the error message
-      speakText(errorMessage.message);
+      if (isTTSEnabled) {
+        speakText(errorMessage.message);
+      }
 
       // If TTS is disabled, focus the input immediately
       if (!isTTSEnabled) {
