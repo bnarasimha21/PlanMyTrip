@@ -24,7 +24,7 @@ def test_extraction_agent():
         return False
 
 def test_search_agent():
-    """Test the search agent with SERP"""
+    """Test the search agent with Tavily"""
     try:
         from agents.search_agent import SearchAgent
         from agents.models import AgentState
@@ -68,18 +68,18 @@ def test_intent_classifier():
         return False
 
 def test_basic_tools():
-    """Test basic SERP tools"""
+    """Test basic Tavily tools"""
     try:
         from agents.tools import search_places_tool, search_travel_info_tool
 
         places = search_places_tool("best restaurants", "Tokyo", 2)
-        print(f"✅ SERP Tools Test: Found {len(places)} places")
+        print(f"✅ Tavily Tools Test: Found {len(places)} places")
 
         info = search_travel_info_tool("best time to visit Tokyo")
         print(f"✅ Travel Info Test: Got {len(info)} chars of info")
         return True
     except Exception as e:
-        print(f"❌ SERP Tools Test Failed: {e}")
+        print(f"❌ Tavily Tools Test Failed: {e}")
         return False
 
 def main():

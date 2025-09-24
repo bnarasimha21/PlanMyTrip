@@ -40,7 +40,7 @@ class ModificationResponse(BaseModel):
     places: List[Place] = Field(description="Updated list of places")
 
 class SearchResults(BaseModel):
-    """Model for search results from SERP API"""
+    """Model for search results from web search (Tavily)"""
     places: List[Dict[str, Any]] = Field(description="List of places from search")
     context: str = Field(description="Formatted context for agents")
 

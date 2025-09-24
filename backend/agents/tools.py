@@ -1,16 +1,21 @@
 """
-Tools for LangGraph agents using SERP API
+Tools for LangGraph agents using Tavily Search
 """
 
 import os
+import json
 import requests
 from typing import List, Dict, Any, Optional
-from serpapi import GoogleSearch
+from dotenv import load_dotenv
+from langchain_tavily import TavilySearch
 from agents.models import SearchResults
 
-# Set the API key
-SERP_API_KEY = "57ac64b9ae4022e145b68dea1e2ff26c1fe5819d8a43da8b4297497fb8bcc56b"
+load_dotenv()
 MAPBOX_TOKEN = os.getenv("MAPBOX_API_KEY") or os.getenv("MAPBOX_ACCESS_TOKEN")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+
+# Initialize a single Tavily search tool instance; we will override per-call max_results
+_tavily_search_tool = TavilySearch(max_results=5, topic="general")
 
 def get_country_for_city(city: str) -> str:
     """Get the country for a given city to improve geocoding accuracy"""
@@ -90,7 +95,7 @@ def get_country_for_city(city: str) -> str:
 
 def search_places_tool(query: str, location: str = "", num_results: int = 10) -> List[Dict[str, Any]]:
     """
-    Search for places using SERP API
+    Search for places using Tavily Search
 
     Args:
         query: Search query (e.g., "best restaurants", "tourist attractions")
@@ -103,73 +108,44 @@ def search_places_tool(query: str, location: str = "", num_results: int = 10) ->
     try:
         search_query = f"{query} in {location}" if location else query
 
-        search = GoogleSearch({
-            "q": search_query,
-            "api_key": SERP_API_KEY,
-            "num": num_results,
-            "hl": "en",
-            "gl": "us"
-        })
+        # Configure per-call max results by creating a transient tool
+        if TAVILY_API_KEY:
+            tavily_tool = TavilySearch(max_results=max(1, int(num_results)), topic="general", tavily_api_key=TAVILY_API_KEY)
+        else:
+            tavily_tool = TavilySearch(max_results=max(1, int(num_results)), topic="general")
 
-        results = search.get_dict()
-        places = []
+        tool_msg = tavily_tool.invoke({"query": search_query})
 
-        if not isinstance(results, dict):
-            return []
+        # tool_msg.content may be a JSON string; normalize to dict
+        content = tool_msg if isinstance(tool_msg, dict) else None
+        if content is None:
+            try:
+                content = json.loads(getattr(tool_msg, "content", "") or "{}")
+            except Exception:
+                content = {}
 
-        # Extract organic results
-        if "organic_results" in results:
-            for result in results["organic_results"]:
-                if isinstance(result, dict):
-                    place_info = {
-                        "name": result.get("title", ""),
-                        "description": result.get("snippet", ""),
-                        "url": result.get("link", ""),
-                        "source": "serp_organic"
-                    }
-                    places.append(place_info)
+        results = content.get("results", []) if isinstance(content, dict) else []
+        places: List[Dict[str, Any]] = []
 
-        # Extract local results if available
-        if "local_results" in results:
-            for result in results["local_results"]:
-                if isinstance(result, dict):
-                    gps_coords = result.get("gps_coordinates", {})
-                    place_info = {
-                        "name": result.get("title", ""),
-                        "address": result.get("address", ""),
-                        "rating": result.get("rating", 0),
-                        "reviews": result.get("reviews", 0),
-                        "type": result.get("type", ""),
-                        "phone": result.get("phone", ""),
-                        "website": result.get("website", ""),
-                        "latitude": gps_coords.get("latitude") if isinstance(gps_coords, dict) else None,
-                        "longitude": gps_coords.get("longitude") if isinstance(gps_coords, dict) else None,
-                        "source": "serp_local"
-                    }
-                    places.append(place_info)
-
-        # Extract knowledge graph results if available
-        if "knowledge_graph" in results:
-            kg = results["knowledge_graph"]
-            if "title" in kg:
-                place_info = {
-                    "name": kg.get("title", ""),
-                    "description": kg.get("description", ""),
-                    "type": kg.get("type", ""),
-                    "website": kg.get("website", ""),
-                    "source": "serp_knowledge_graph"
+        for result in results:
+            if isinstance(result, dict):
+                place_info: Dict[str, Any] = {
+                    "name": result.get("title", ""),
+                    "description": result.get("content", ""),
+                    "url": result.get("url", ""),
+                    "source": "tavily"
                 }
                 places.append(place_info)
 
         return places[:num_results]
 
     except Exception as e:
-        print(f"SERP search error: {e}")
+        print(f"Tavily search error: {e}")
         return []
 
 def search_travel_info_tool(query: str, location: str = "") -> str:
     """
-    Search for travel-related information using SERP API
+    Search for travel-related information using Tavily Search
 
     Args:
         query: Travel question or topic
@@ -181,42 +157,34 @@ def search_travel_info_tool(query: str, location: str = "") -> str:
     try:
         search_query = f"{query} {location}".strip()
 
-        search = GoogleSearch({
-            "q": search_query,
-            "api_key": SERP_API_KEY,
-            "num": 5,
-            "hl": "en",
-            "gl": "us"
-        })
+        # Up to 5 concise results
+        if TAVILY_API_KEY:
+            tavily_tool = TavilySearch(max_results=5, topic="general", tavily_api_key=TAVILY_API_KEY)
+        else:
+            tavily_tool = TavilySearch(max_results=5, topic="general")
 
-        results = search.get_dict()
-        info_text = []
+        tool_msg = tavily_tool.invoke({"query": search_query})
+        try:
+            content = tool_msg if isinstance(tool_msg, dict) else json.loads(getattr(tool_msg, "content", "") or "{}")
+        except Exception:
+            content = {}
 
-        # Extract answer box if available
-        if "answer_box" in results:
-            answer = results["answer_box"]
-            if "answer" in answer:
-                info_text.append(f"Quick Answer: {answer['answer']}")
-            elif "snippet" in answer:
-                info_text.append(f"Quick Answer: {answer['snippet']}")
+        results = content.get("results", []) if isinstance(content, dict) else []
+        if not results:
+            return "No relevant information found."
 
-        # Extract featured snippet
-        if "featured_snippet" in results:
-            snippet = results["featured_snippet"]
-            info_text.append(f"Featured Info: {snippet.get('snippet', '')}")
+        info_lines: List[str] = []
+        for i, result in enumerate(results[:3], 1):
+            title = result.get("title", "")
+            snippet = (result.get("content", "") or "")[:120]
+            url = result.get("url", "")
+            if title and snippet:
+                info_lines.append(f"{i}. {title}: {snippet}... ({url})")
 
-        # Extract organic results (shortened)
-        if "organic_results" in results:
-            for i, result in enumerate(results["organic_results"][:2], 1):
-                title = result.get("title", "")
-                snippet = result.get("snippet", "")[:80]  # Limit snippet length
-                if title and snippet:
-                    info_text.append(f"{i}. {title}: {snippet}...")
-
-        return "\n\n".join(info_text) if info_text else "No relevant information found."
+        return "\n\n".join(info_lines) if info_lines else "No relevant information found."
 
     except Exception as e:
-        print(f"SERP travel info search error: {e}")
+        print(f"Tavily travel info search error: {e}")
         return "Unable to fetch current information at this time."
 
 def search_restaurants_tool(location: str, cuisine_type: str = "", num_results: int = 5) -> List[Dict[str, Any]]:

@@ -1,5 +1,5 @@
 """
-Agent for searching places using SERP API
+Agent for searching places using web search tools (Tavily)
 """
 
 from typing import List
@@ -14,7 +14,7 @@ from agents.tools import (
 )
 
 class SearchAgent(BaseAgent):
-    """Agent responsible for searching places using SERP API"""
+    """Agent responsible for searching places using Tavily search"""
 
     def search_for_interests(self, city: str, interests: str, days: int) -> SearchResults:
         """Search for places based on user interests"""
