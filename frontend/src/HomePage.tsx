@@ -142,6 +142,152 @@ const HomePage: React.FC = () => {
         </div>
       </div>
 
+      {/* Pricing Section */}
+      <div className="py-20 bg-black/20 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-4">
+              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                Choose Your Plan
+              </span>
+            </h2>
+            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+              Start free and upgrade when you're ready for unlimited adventures
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Freemium Plan */}
+            <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10 hover:bg-white/10 transition-all duration-300 relative">
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4">
+                  🆓
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-2">Freemium</h3>
+                <div className="text-4xl font-bold text-white mb-2">Free</div>
+                <p className="text-gray-400">Perfect for getting started</p>
+              </div>
+
+              <ul className="space-y-4 mb-8">
+                <li className="flex items-center gap-3">
+                  <span className="text-green-400 text-lg">✓</span>
+                  <span className="text-gray-300">3 trip plans per month</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-green-400 text-lg">✓</span>
+                  <span className="text-gray-300">Basic AI recommendations</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-green-400 text-lg">✓</span>
+                  <span className="text-gray-300">Interactive maps</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-green-400 text-lg">✓</span>
+                  <span className="text-gray-300">1-day itinerary max</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-green-400 text-lg">✓</span>
+                  <span className="text-gray-300">Basic voice commands</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-green-400 text-lg">✓</span>
+                  <span className="text-gray-300">Community support</span>
+                </li>
+              </ul>
+
+              <Link
+                to="/app"
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-6 rounded-xl font-semibold text-center block transition-all duration-200 transform hover:scale-105 shadow-lg"
+              >
+                Start Free
+              </Link>
+            </div>
+
+            {/* Premium Plan */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border-2 border-purple-500/50 hover:bg-white/15 transition-all duration-300 relative">
+              {/* Popular Badge */}
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-full text-sm font-semibold shadow-lg">
+                  Most Popular
+                </span>
+              </div>
+
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4">
+                  ⭐
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-2">Premium</h3>
+                <div className="text-4xl font-bold text-white mb-2">$9.99<span className="text-lg text-gray-400">/month</span></div>
+                <p className="text-gray-400">For serious travelers</p>
+              </div>
+
+              <ul className="space-y-4 mb-8">
+                <li className="flex items-center gap-3">
+                  <span className="text-purple-400 text-lg">✓</span>
+                  <span className="text-white font-medium">Unlimited trip plans</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-purple-400 text-lg">✓</span>
+                  <span className="text-gray-300">Advanced AI personalization</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-purple-400 text-lg">✓</span>
+                  <span className="text-gray-300">Route optimization</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-purple-400 text-lg">✓</span>
+                  <span className="text-gray-300">Multi-day itineraries (up to 30 days)</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-purple-400 text-lg">✓</span>
+                  <span className="text-gray-300">Advanced voice assistant</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-purple-400 text-lg">✓</span>
+                  <span className="text-gray-300">Priority support</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-purple-400 text-lg">✓</span>
+                  <span className="text-gray-300">Export to PDF/Calendar</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-purple-400 text-lg">✓</span>
+                  <span className="text-gray-300">Offline maps</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-purple-400 text-lg">✓</span>
+                  <span className="text-gray-300">Weather integration</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-purple-400 text-lg">✓</span>
+                  <span className="text-gray-300">Budget tracking</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <span className="text-purple-400 text-lg">✓</span>
+                  <span className="text-gray-300">Group trip planning</span>
+                </li>
+              </ul>
+
+              <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg">
+                Upgrade to Premium
+              </button>
+            </div>
+          </div>
+
+          {/* Additional Info */}
+          <div className="text-center mt-12">
+            <p className="text-gray-400 mb-4">
+              All plans include our core AI-powered trip planning features
+            </p>
+            <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-500">
+              <span>✓ 30-day money-back guarantee</span>
+              <span>✓ Cancel anytime</span>
+              <span>✓ Secure payment</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* CTA Section */}
       <div className="py-20">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
