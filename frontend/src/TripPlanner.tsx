@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 // @ts-ignore annyang has imperfect types
@@ -1311,15 +1312,24 @@ export default function App() {
     <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 text-white">
       {/* Header */}
       <div className="bg-slate-800/90 backdrop-blur-md border-b border-slate-600 shadow-lg">
-        <div className="px-6 py-8 flex flex-col justify-center">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            ✈️ Plan My Trip
-          </h1>
-          <p className="text-sm text-slate-300 mt-1">AI-powered travel planning with interactive maps</p>
+        <div className="px-6 py-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              ✈️ Plan My Trip
+            </h1>
+            <p className="text-sm text-slate-300 mt-1">AI-powered travel planning with interactive maps</p>
+          </div>
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors duration-200 group bg-slate-700/50 hover:bg-slate-600/50 px-4 py-2 rounded-lg border border-slate-600 hover:border-slate-500"
+          >
+            <span className="text-xl group-hover:scale-110 transition-transform duration-200">🏠</span>
+            <span className="font-medium">Home</span>
+          </Link>
         </div>
       </div>
 
-            <div className="flex h-[calc(100vh-120px)]">
+            <div className="flex h-[calc(100vh-100px)]">
               {/* Sidebar */}
               <div className="w-[520px] bg-slate-900/95 backdrop-blur-xl border-r border-slate-600 overflow-hidden flex flex-col shadow-lg">
           <div className="p-6 space-y-6 flex-shrink-0">
