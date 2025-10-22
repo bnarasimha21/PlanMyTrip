@@ -1,7 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from './AuthContext';
+import GoogleLogin from './GoogleLogin';
+import UserProfile from './UserProfile';
+import SetupGuide from './SetupGuide';
 
 const HomePage: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 text-white overflow-x-hidden">
       {/* Navigation */}
@@ -13,12 +19,24 @@ const HomePage: React.FC = () => {
                 ✈️ Plan My Trip
               </h1>
             </div>
-            <Link
-              to="/app"
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg"
-            >
-              Get Started
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link
+                to="/app"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg"
+              >
+                Get Started
+              </Link>
+              {isLoading ? (
+                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+              ) : isAuthenticated ? (
+                <UserProfile />
+              ) : (
+                <GoogleLogin 
+                  className="w-48"
+                  onSuccess={() => console.log('Login successful')}
+                />
+              )}
+            </div>
           </div>
         </div>
       </nav>
@@ -335,6 +353,9 @@ const HomePage: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      {/* Setup Guide */}
+      <SetupGuide />
     </div>
   );
 };
