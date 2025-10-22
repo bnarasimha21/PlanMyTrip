@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Razorpay UPI Test</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+    <h1>Razorpay UPI Test</h1>
+    <button onclick="testRazorpay()">Test Razorpay with UPI</button>
+    
+    <script>
+        function testRazorpay() {
+            const options = {
+                key: 'rzp_test_RWZv6Fqh8F4Pdy',
+                amount: 100000, // ₹1000 in paise
+                currency: 'INR',
+                name: 'Test Company',
+                description: 'Test Payment',
+                order_id: 'test_order_' + Date.now(),
+                method: {
+                    netbanking: true,
+                    wallet: true,
+                    upi: true,
+                    card: true,
+                    emi: true,
+                    paylater: true
+                },
+                upi: {
+                    flow: 'collect'
+                },
+                prefill: {
+                    name: 'Test User',
+                    email: 'test@example.com',
+                    contact: '9999999999'
+                },
+                theme: {
+                    color: '#8B5CF6'
+                },
+                handler: function(response) {
+                    console.log('Payment successful:', response);
+                    alert('Payment successful!');
+                },
+                modal: {
+                    ondismiss: function() {
+                        console.log('Modal dismissed');
+                    }
+                }
+            };
+            
+            console.log('Razorpay options:', options);
+            const razorpay = new Razorpay(options);
+            razorpay.open();
+        }
+    </script>
+</body>
+</html>

@@ -54,21 +54,21 @@ const UserProfile: React.FC<UserProfileProps> = ({
       </button>
 
       {showDropdown && isDropdownOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-slate-800/95 backdrop-blur-sm rounded-xl border border-slate-600 shadow-xl z-50">
-          <div className="p-4 border-b border-slate-600">
+        <div className="absolute right-0 mt-2 w-64 bg-white/95 backdrop-blur-sm rounded-xl border border-blue-200 shadow-xl z-50">
+          <div className="p-4 border-b border-blue-200">
             <div className="flex items-center gap-3">
               <img
                 src={user.picture || '/default-avatar.png'}
                 alt={user.name}
-                className="w-12 h-12 rounded-full border-2 border-white/20"
+                className="w-12 h-12 rounded-full border-2 border-blue-200"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=6366f1&color=fff&size=48`;
+                  target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0ea5e9&color=fff&size=48`;
                 }}
               />
               <div>
-                <div className="font-medium text-white">{user.name}</div>
-                <div className="text-sm text-gray-400">{user.email}</div>
+                <div className="font-medium text-slate-800">{user.name}</div>
+                <div className="text-sm text-slate-600">{user.email}</div>
               </div>
             </div>
           </div>
@@ -76,7 +76,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
           <div className="p-2">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-400 hover:bg-red-500/10 rounded-lg transition-colors duration-200"
+              className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-200"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
