@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from './AuthContext';
+import UserProfile from './UserProfile';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 // @ts-ignore annyang has imperfect types
@@ -58,7 +60,7 @@ const POPUP_STYLES = `
 }
 </style>`;
 
-export default function App() {
+export default function TripPlanner() {
   const [tripRequest, setTripRequest] = useState('Plan a 1-day must see places in Hanoi');
   const [extracted, setExtracted] = useState<{ city: string; interests: string; days: number } | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
@@ -1319,13 +1321,16 @@ export default function App() {
             </h1>
             <p className="text-sm text-slate-300 mt-1">AI-powered travel planning with interactive maps</p>
           </div>
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors duration-200 group bg-slate-700/50 hover:bg-slate-600/50 px-4 py-2 rounded-lg border border-slate-600 hover:border-slate-500"
-          >
-            <span className="text-xl group-hover:scale-110 transition-transform duration-200">🏠</span>
-            <span className="font-medium">Home</span>
-          </Link>
+          <div className="flex items-center gap-4">
+            <UserProfile />
+            <Link
+              to="/"
+              className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors duration-200 group bg-slate-700/50 hover:bg-slate-600/50 px-4 py-2 rounded-lg border border-slate-600 hover:border-slate-500"
+            >
+              <span className="text-xl group-hover:scale-110 transition-transform duration-200">🏠</span>
+              <span className="font-medium">Home</span>
+            </Link>
+          </div>
         </div>
       </div>
 
