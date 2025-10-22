@@ -20,7 +20,8 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^7.9.4"
+    "react-router-dom": "^7.9.4",
+    "razorpay": "^2.2.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",

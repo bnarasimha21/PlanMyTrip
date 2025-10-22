@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider } from './AuthContext';
+import { SubscriptionProvider } from './SubscriptionContext';
 import HomePage from './HomePage';
 import TripPlanner from './TripPlanner';
 
@@ -16,12 +17,14 @@ function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/app" element={<TripPlanner />} />
-          </Routes>
-        </Router>
+        <SubscriptionProvider>
+          <Router>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/app" element={<TripPlanner />} />
+            </Routes>
+          </Router>
+        </SubscriptionProvider>
       </AuthProvider>
     </GoogleOAuthProvider>
   );

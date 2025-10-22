@@ -9,6 +9,9 @@ import os
 # Import the new simplified workflow
 from agents.simple_workflow import trip_workflow
 
+# Import payment service
+from payment_service import payment_service
+
 # Import GTTS for text-to-speech
 try:
     from gtts import gTTS
@@ -57,6 +60,16 @@ class ModifyRequest(BaseModel):
 class TTSRequest(BaseModel):
     text: str
     lang: Optional[str] = "en"
+
+class CreateOrderRequest(BaseModel):
+    amount: int
+    currency: Optional[str] = "INR"
+    receipt: Optional[str] = None
+
+class VerifyPaymentRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
 
 @app.get("/")
 def home() -> Dict[str, Any]:
@@ -170,6 +183,41 @@ def text_to_speech(req: TTSRequest):
 
     except Exception as e:
         return {"error": str(e)}
+
+@app.post("/payment/create-order")
+def create_payment_order(req: CreateOrderRequest) -> Dict[str, Any]:
+    """Create a Razorpay order for payment"""
+    try:
+        result = payment_service.create_order(
+            amount=req.amount,
+            currency=req.currency,
+            receipt=req.receipt
+        )
+        return result
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/payment/verify")
+def verify_payment(req: VerifyPaymentRequest) -> Dict[str, Any]:
+    """Verify Razorpay payment signature"""
+    try:
+        result = payment_service.verify_payment(
+            razorpay_order_id=req.razorpay_order_id,
+            razorpay_payment_id=req.razorpay_payment_id,
+            razorpay_signature=req.razorpay_signature
+        )
+        return result
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/payment/details/{payment_id}")
+def get_payment_details(payment_id: str) -> Dict[str, Any]:
+    """Get payment details from Razorpay"""
+    try:
+        result = payment_service.get_payment_details(payment_id)
+        return result
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 # Test endpoint for the new workflow
 @app.get("/test-workflow")

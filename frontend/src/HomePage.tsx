@@ -1,12 +1,44 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import { useSubscription } from './SubscriptionContext';
 import GoogleLogin from './GoogleLogin';
 import UserProfile from './UserProfile';
 import SetupGuide from './SetupGuide';
+import PaymentModal from './PaymentModal';
 
 const HomePage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const { isSubscribed, subscriptionPlan } = useSubscription();
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<{
+    name: string;
+    price: number;
+    features: string[];
+  } | null>(null);
+
+  const premiumPlan = {
+    name: 'Premium',
+    price: 1.00,
+    features: [
+      'Unlimited trip plans',
+      'Advanced AI personalization',
+      'Route optimization',
+      'Multi-day itineraries (up to 30 days)',
+      'Advanced voice assistant',
+      'Priority support',
+      'Export to PDF/Calendar',
+      'Offline maps',
+      'Weather integration',
+      'Budget tracking',
+      'Group trip planning'
+    ]
+  };
+
+  const handleUpgradeClick = () => {
+    setSelectedPlan(premiumPlan);
+    setShowPaymentModal(true);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 text-white overflow-x-hidden">
@@ -235,7 +267,7 @@ const HomePage: React.FC = () => {
                   ⭐
                 </div>
                 <h3 className="text-2xl font-bold text-white mb-2">Premium</h3>
-                <div className="text-4xl font-bold text-white mb-2">$9.99<span className="text-lg text-gray-400">/month</span></div>
+                <div className="text-4xl font-bold text-white mb-2">$1.00<span className="text-lg text-gray-400">/month</span></div>
                 <p className="text-gray-400">For serious travelers</p>
               </div>
 
@@ -286,8 +318,11 @@ const HomePage: React.FC = () => {
                 </li>
               </ul>
 
-              <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg">
-                Upgrade to Premium
+              <button 
+                onClick={handleUpgradeClick}
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg"
+              >
+                {isSubscribed ? 'Manage Subscription' : 'Upgrade to Premium'}
               </button>
             </div>
           </div>
@@ -356,6 +391,18 @@ const HomePage: React.FC = () => {
 
       {/* Setup Guide */}
       <SetupGuide />
+
+      {/* Payment Modal */}
+      {selectedPlan && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedPlan(null);
+          }}
+          plan={selectedPlan}
+        />
+      )}
     </div>
   );
 };
