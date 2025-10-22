@@ -61,13 +61,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, plan }) =>
         </div>
 
         <div className="mb-6">
-          <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-6 text-white">
+          <div className="bg-gradient-to-r from-blue-500 to-sky-500 rounded-xl p-6 text-white">
             <h3 className="text-xl font-bold mb-2">{plan.name} Plan</h3>
             <div className="text-3xl font-bold mb-2">
               ${plan.price.toFixed(2)}
               <span className="text-lg font-normal opacity-80">/month</span>
             </div>
-            <p className="text-purple-100">Billed monthly, cancel anytime</p>
+            <p className="text-blue-100">Billed monthly, cancel anytime</p>
           </div>
         </div>
 
@@ -76,7 +76,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, plan }) =>
           <ul className="space-y-2">
             {plan.features.map((feature, index) => (
               <li key={index} className="flex items-center gap-3">
-                <span className="text-green-500 text-lg">✓</span>
+                <span className="text-blue-500 text-lg">✓</span>
                 <span className="text-gray-700">{feature}</span>
               </li>
             ))}
@@ -87,7 +87,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, plan }) =>
           <button
             onClick={handlePayment}
             disabled={isProcessing}
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed shadow-lg"
+            className="w-full bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed shadow-lg"
           >
             {isProcessing ? (
               <div className="flex items-center justify-center gap-2">

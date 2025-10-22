@@ -1311,21 +1311,21 @@ export default function TripPlanner() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-sky-100 text-slate-800">
       {/* Header */}
-      <div className="bg-slate-800/90 backdrop-blur-md border-b border-slate-600 shadow-lg">
+      <div className="bg-white/90 backdrop-blur-md border-b border-blue-200 shadow-lg">
         <div className="px-6 py-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-sky-600 to-blue-500 bg-clip-text text-transparent">
               ✈️ Plan My Trip
             </h1>
-            <p className="text-sm text-slate-300 mt-1">AI-powered travel planning with interactive maps</p>
+            <p className="text-sm text-slate-600 mt-1">AI-powered travel planning with interactive maps</p>
           </div>
           <div className="flex items-center gap-4">
             <UserProfile />
             <Link
               to="/"
-              className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors duration-200 group bg-slate-700/50 hover:bg-slate-600/50 px-4 py-2 rounded-lg border border-slate-600 hover:border-slate-500"
+              className="flex items-center gap-2 text-slate-600 hover:text-blue-600 transition-colors duration-200 group bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg border border-blue-200 hover:border-blue-300"
             >
               <span className="text-xl group-hover:scale-110 transition-transform duration-200">🏠</span>
               <span className="font-medium">Home</span>
@@ -1336,17 +1336,17 @@ export default function TripPlanner() {
 
             <div className="flex h-[calc(100vh-100px)]">
               {/* Sidebar */}
-              <div className="w-[520px] bg-slate-900/95 backdrop-blur-xl border-r border-slate-600 overflow-hidden flex flex-col shadow-lg">
+              <div className="w-[520px] bg-white/95 backdrop-blur-xl border-r border-blue-200 overflow-hidden flex flex-col shadow-lg">
           <div className="p-6 space-y-6 flex-shrink-0">
             {/* Trip Request Section with Voice Input */}
-            <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl border border-slate-600 shadow-lg">
+            <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl border border-blue-200 shadow-lg">
               <button
                 onClick={() => setIsTripRequestCollapsed(!isTripRequestCollapsed)}
-                className="w-full p-6 text-left hover:bg-slate-700/50 transition-colors duration-200 rounded-2xl"
+                className="w-full p-6 text-left hover:bg-blue-100/50 transition-colors duration-200 rounded-2xl"
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold flex items-center gap-2 text-white">
-                    <span className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-sm text-white">✍️</span>
+                  <h3 className="text-lg font-semibold flex items-center gap-2 text-slate-800">
+                    <span className="w-8 h-8 bg-gradient-to-r from-blue-500 to-sky-600 rounded-full flex items-center justify-center text-sm text-white">✍️</span>
                     Trip Request
                   </h3>
                   <div className="flex items-center gap-2">
@@ -1367,7 +1367,7 @@ export default function TripPlanner() {
                         🎤
                       </button>
                     )}
-                    <span className={`transform transition-transform duration-200 text-slate-300`}>
+                    <span className={`transform transition-transform duration-200 text-slate-600`}>
                       {isTripRequestCollapsed ? '▼' : '▲'}
                     </span>
                   </div>
@@ -1380,7 +1380,7 @@ export default function TripPlanner() {
                     value={tripRequest}
                     onChange={(e) => setTripRequest(e.target.value)}
                     rows={2}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-xl p-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none mb-4 shadow-sm text-xl"
+                    className="w-full bg-white border border-blue-200 rounded-xl p-4 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none mb-4 shadow-sm text-xl"
                     placeholder="Describe your dream trip... e.g., 'Plan a 3-day art and food tour in Paris'"
                   />
                   
@@ -1388,7 +1388,7 @@ export default function TripPlanner() {
                   <div className="flex gap-3">
                     <button 
                       onClick={doExtract}
-                      className={`py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-emerald-500/25 ${
+                      className={`py-3 px-4 bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-blue-500/25 ${
                         extracted ? 'flex-1' : 'w-full'
                       }`}
                     >
@@ -1397,7 +1397,7 @@ export default function TripPlanner() {
                     {extracted && (
                       <button 
                         onClick={doItinerary}
-                        className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-md"
+                        className="flex-1 py-3 px-4 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-md"
                       >
                         🗺️ Generate Itinerary
                       </button>
@@ -1410,17 +1410,17 @@ export default function TripPlanner() {
 
             {/* Extracted Details - Collapsible */}
             {extracted && (
-              <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl border border-slate-600 shadow-lg">
+              <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl border border-blue-200 shadow-lg">
                 <button
                   onClick={() => setIsExtractedCollapsed(!isExtractedCollapsed)}
-                  className="w-full p-6 text-left hover:bg-slate-700/50 transition-colors duration-200 rounded-2xl"
+                  className="w-full p-6 text-left hover:bg-blue-100/50 transition-colors duration-200 rounded-2xl"
                 >
-                  <h3 className="text-lg font-semibold flex items-center justify-between text-white">
+                  <h3 className="text-lg font-semibold flex items-center justify-between text-slate-800">
                     <div className="flex items-center gap-2">
-                      <span className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-sm text-white">✅</span>
+                      <span className="w-8 h-8 bg-gradient-to-r from-blue-500 to-sky-600 rounded-full flex items-center justify-center text-sm text-white">✅</span>
                       Trip Details
                     </div>
-                    <span className={`transform transition-transform duration-200 text-slate-300 ${isExtractedCollapsed ? '' : 'rotate-180'}`}>
+                    <span className={`transform transition-transform duration-200 text-slate-600 ${isExtractedCollapsed ? '' : 'rotate-180'}`}>
                       {isExtractedCollapsed ? '▼' : '▲'}
                     </span>
                   </h3>
@@ -1428,27 +1428,27 @@ export default function TripPlanner() {
                 
                 {!isExtractedCollapsed && (
                   <div className="px-6 pb-6">
-                    <div className="bg-slate-800 rounded-xl p-4 space-y-3 border border-slate-600 shadow-sm">
+                    <div className="bg-white rounded-xl p-4 space-y-3 border border-blue-200 shadow-sm">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 bg-blue-600/30 rounded-full flex items-center justify-center text-xs">🏙️</span>
-                          <span className="text-slate-300 font-medium">Destination:</span>
+                          <span className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs">🏙️</span>
+                          <span className="text-slate-600 font-medium">Destination:</span>
                         </div>
-                        <span className="font-semibold text-green-400 bg-green-600/20 px-3 py-1 rounded-lg">{extracted.city}</span>
+                        <span className="font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-lg">{extracted.city}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 bg-purple-600/30 rounded-full flex items-center justify-center text-xs">🎯</span>
-                          <span className="text-slate-300 font-medium">Interests:</span>
+                          <span className="w-6 h-6 bg-sky-100 rounded-full flex items-center justify-center text-xs">🎯</span>
+                          <span className="text-slate-600 font-medium">Interests:</span>
                         </div>
-                        <span className="font-semibold text-purple-400 bg-purple-600/20 px-3 py-1 rounded-lg">{extracted.interests}</span>
+                        <span className="font-semibold text-sky-600 bg-sky-100 px-3 py-1 rounded-lg">{extracted.interests}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 bg-amber-600/30 rounded-full flex items-center justify-center text-xs">📅</span>
-                          <span className="text-slate-300 font-medium">Duration:</span>
+                          <span className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs">📅</span>
+                          <span className="text-slate-600 font-medium">Duration:</span>
                         </div>
-                        <span className="font-semibold text-amber-400 bg-amber-600/20 px-3 py-1 rounded-lg">
+                        <span className="font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-lg">
                           {extracted.days} {extracted.days === 1 ? 'Day' : 'Days'}
                         </span>
                       </div>
@@ -1460,10 +1460,10 @@ export default function TripPlanner() {
 
             {/* Itinerary Generation Status */}
             {status && (status.includes('Generating') || status.includes('Extracting')) && (
-              <div className="bg-blue-500/10 rounded-2xl p-4 border border-blue-500/20">
+              <div className="bg-blue-100 rounded-2xl p-4 border border-blue-200">
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-sm text-blue-200">{status}</p>
+                  <p className="text-sm text-blue-700">{status}</p>
                 </div>
               </div>
             )}
@@ -1473,19 +1473,19 @@ export default function TripPlanner() {
             {/* AI Itinerary Assistant Chatbot - Full Height */}
             {hasGeneratedItinerary && (
               <div className="flex-1 p-6 pt-0 flex flex-col overflow-hidden">
-                <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl border border-slate-600 shadow-lg flex flex-col h-full">
+                <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl border border-blue-200 shadow-lg flex flex-col h-full">
                   <div className="p-6 pb-4 flex-shrink-0">
-                    <h3 className="text-lg font-semibold flex items-center gap-2 text-white">
-                      <span className="w-8 h-8 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center text-sm">🤖</span>
+                    <h3 className="text-lg font-semibold flex items-center gap-2 text-slate-800">
+                      <span className="w-8 h-8 bg-gradient-to-r from-blue-600 to-sky-600 rounded-full flex items-center justify-center text-sm">🤖</span>
                       AI Itinerary Assistant
                     </h3>
                   </div>
 
                   {/* Chat Messages - Flexible Height */}
-                  <div className="bg-slate-700/60 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-slate-600 relative chat-messages">
+                  <div className="bg-white/80 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-blue-200 relative chat-messages">
                     {chatMessages.length === 0 ? (
-                      <div className="text-center text-slate-400 py-8">
-                        <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <div className="text-center text-slate-500 py-8">
+                        <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-sky-600 rounded-full flex items-center justify-center mx-auto mb-3">
                           💬
                         </div>
                         <p className="text-base">Ask me anything about your itinerary!</p>
@@ -1497,8 +1497,8 @@ export default function TripPlanner() {
                           <div key={index} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-[80%] p-3 rounded-lg ${
                               msg.type === 'user' 
-                                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white ml-8 shadow-lg' 
-                                : 'bg-gradient-to-r from-slate-600 to-slate-700 text-white mr-8 shadow-lg'
+                                ? 'bg-gradient-to-r from-blue-500 to-sky-600 text-white ml-8 shadow-lg' 
+                                : 'bg-gradient-to-r from-blue-100 to-sky-100 text-slate-800 mr-8 shadow-lg'
                             }`}>
                               {msg.type === 'bot' ? (
                                 <div className="text-base prose prose-invert prose-sm max-w-none">
@@ -1508,14 +1508,14 @@ export default function TripPlanner() {
                                       ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
                                       ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
                                       li: ({ children }) => <li className="text-sm">{children}</li>,
-                                      strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+                                      strong: ({ children }) => <strong className="font-semibold text-slate-800">{children}</strong>,
                                       em: ({ children }) => <em className="italic">{children}</em>,
-                                      code: ({ children }) => <code className="bg-slate-800 px-1 py-0.5 rounded text-xs font-mono text-green-300">{children}</code>,
-                                      pre: ({ children }) => <pre className="bg-slate-800 p-2 rounded text-xs font-mono text-green-300 overflow-x-auto mb-2">{children}</pre>,
-                                      blockquote: ({ children }) => <blockquote className="border-l-4 border-blue-400 pl-3 italic text-blue-200 mb-2">{children}</blockquote>,
-                                      h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2">{children}</h1>,
-                                      h2: ({ children }) => <h2 className="text-base font-bold text-white mb-2">{children}</h2>,
-                                      h3: ({ children }) => <h3 className="text-sm font-bold text-white mb-1">{children}</h3>,
+                                      code: ({ children }) => <code className="bg-blue-100 px-1 py-0.5 rounded text-xs font-mono text-blue-800">{children}</code>,
+                                      pre: ({ children }) => <pre className="bg-blue-100 p-2 rounded text-xs font-mono text-blue-800 overflow-x-auto mb-2">{children}</pre>,
+                                      blockquote: ({ children }) => <blockquote className="border-l-4 border-blue-400 pl-3 italic text-blue-700 mb-2">{children}</blockquote>,
+                                      h1: ({ children }) => <h1 className="text-lg font-bold text-slate-800 mb-2">{children}</h1>,
+                                      h2: ({ children }) => <h2 className="text-base font-bold text-slate-800 mb-2">{children}</h2>,
+                                      h3: ({ children }) => <h3 className="text-sm font-bold text-slate-800 mb-1">{children}</h3>,
                                     }}
                                   >
                                     {msg.message}
@@ -1534,7 +1534,7 @@ export default function TripPlanner() {
                         {/* Show processing indicator in chat */}
                         {status && status.includes('Processing') && (
                           <div className="flex justify-start">
-                            <div className="max-w-[80%] p-4 rounded-lg bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white mr-8 shadow-lg">
+                            <div className="max-w-[80%] p-4 rounded-lg bg-gradient-to-r from-blue-500 via-sky-500 to-blue-600 text-white mr-8 shadow-lg">
                               <div className="flex items-center gap-3">
                                 {/* Bouncing dots animation */}
                                 <div className="flex gap-1">
@@ -1571,7 +1571,7 @@ export default function TripPlanner() {
                     {/* Small Listening Indicator - Above text input */}
                     {isChatListening && (
                       <div className="mb-4 flex justify-end">
-                        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-full p-3 shadow-lg border border-white/20 backdrop-blur-sm">
+                        <div className="bg-gradient-to-r from-blue-600 to-sky-600 rounded-full p-3 shadow-lg border border-white/20 backdrop-blur-sm">
                           <div className="flex items-center space-x-3">
                             {/* Animated microphone icon */}
                             <div className="relative">
@@ -1617,7 +1617,7 @@ export default function TripPlanner() {
                           value={chatInput}
                           onChange={(e) => setChatInput(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
-                          className="w-full bg-slate-700 border border-slate-600 rounded-xl p-4 text-white text-lg placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                          className="w-full bg-white border border-blue-200 rounded-xl p-4 text-slate-800 text-lg placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                           placeholder="💡 Try: &quot;Add a restaurant&quot;, &quot;What's nearby?&quot;, or &quot;Best route?&quot;"
                         />
                       </div>
@@ -1626,7 +1626,7 @@ export default function TripPlanner() {
                       <div className="flex gap-3 items-center justify-between">
                         {/* TTS Toggle Switch - Left Side */}
                         <div className="flex items-center gap-2">
-                          <span className="text-sm text-slate-400">TTS</span>
+                          <span className="text-sm text-slate-600">TTS</span>
                           <div className="relative">
                             <input
                               type="checkbox"
@@ -1638,7 +1638,7 @@ export default function TripPlanner() {
                             <label
                               htmlFor="tts-toggle"
                               className={`block w-12 h-6 rounded-full cursor-pointer transition-all duration-200 ${
-                                isTTSEnabled ? 'bg-green-500' : 'bg-slate-600'
+                                isTTSEnabled ? 'bg-blue-500' : 'bg-slate-300'
                               }`}
                               title={isTTSEnabled ? 'Text-to-speech enabled' : 'Text-to-speech disabled'}
                             >
@@ -1673,10 +1673,10 @@ export default function TripPlanner() {
                             }}
                             className={`px-4 py-3 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg ${
                               isChatListening
-                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white animate-pulse'
+                                ? 'bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white animate-pulse'
                                 : isContinuousListening
-                                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
-                                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white'
+                                ? 'bg-gradient-to-r from-blue-500 to-sky-500 hover:from-blue-600 hover:to-sky-600 text-white'
+                                : 'bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white'
                             }`}
                             title={isChatListening ? 'Click to stop listening' : isContinuousListening ? 'Continuous listening enabled' : 'Use voice to ask'}
                             aria-label={isChatListening ? 'Stop voice input' : 'Start voice input'}
@@ -1689,7 +1689,7 @@ export default function TripPlanner() {
                           <button
                             onClick={sendChatMessage}
                             disabled={!chatInput.trim()}
-                            className="px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                            className="px-4 py-3 bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                           >
                             ✨ Send
                           </button>
@@ -1873,44 +1873,44 @@ export default function TripPlanner() {
 
               {/* Right Sidebar - Itinerary */}
               {(hasGeneratedItinerary || places.length > 0) && (
-                <div className="w-[520px] bg-slate-900/95 backdrop-blur-xl border-l border-slate-600 overflow-y-auto shadow-lg">
+                <div className="w-[520px] bg-white/95 backdrop-blur-xl border-l border-blue-200 overflow-y-auto shadow-lg">
                   <div className="p-6">
-                    <div className="bg-slate-800/80 rounded-2xl p-6 border border-slate-600 shadow-lg">
-                      <h3 className="text-xl font-semibold mb-6 flex items-center gap-3 text-white">
-                        <span className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full flex items-center justify-center text-sm">🗺️</span>
+                    <div className="bg-blue-50/80 rounded-2xl p-6 border border-blue-200 shadow-lg">
+                      <h3 className="text-xl font-semibold mb-6 flex items-center gap-3 text-slate-800">
+                        <span className="w-10 h-10 bg-gradient-to-r from-blue-500 to-sky-600 rounded-full flex items-center justify-center text-sm">🗺️</span>
                         Your Itinerary
-                        {places.length > 0 && <span className="text-sm font-normal text-slate-400">({places.length} places)</span>}
+                        {places.length > 0 && <span className="text-sm font-normal text-slate-600">({places.length} places)</span>}
                       </h3>
                       
                       {places.length > 0 ? (
                         <div className="space-y-4">
                           {places.map((place, index) => (
-                          <div key={index} className="bg-slate-700/80 rounded-xl p-4 border border-slate-600 hover:bg-slate-700 transition-colors duration-200 shadow-sm">
+                          <div key={index} className="bg-white/80 rounded-xl p-4 border border-blue-200 hover:bg-white transition-colors duration-200 shadow-sm">
                             <div className="flex items-start gap-3">
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                                place.category?.toLowerCase().includes('food') ? 'bg-amber-600 text-white' :
-                                place.category?.toLowerCase().includes('art') ? 'bg-rose-600 text-white' :
+                                place.category?.toLowerCase().includes('food') ? 'bg-amber-500 text-white' :
+                                place.category?.toLowerCase().includes('art') ? 'bg-rose-500 text-white' :
                                 (place.category?.toLowerCase().includes('sight') || place.category?.toLowerCase().includes('culture') || 
                                  place.category?.toLowerCase().includes('temple') || place.category?.toLowerCase().includes('monument') ||
-                                 place.category?.toLowerCase().includes('landmark') || place.category?.toLowerCase().includes('tourist')) ? 'bg-violet-600 text-white' : 'bg-slate-600 text-white'
+                                 place.category?.toLowerCase().includes('landmark') || place.category?.toLowerCase().includes('tourist')) ? 'bg-violet-500 text-white' : 'bg-blue-500 text-white'
                               }`}>
                                 {index + 1}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-white mb-1">{place.name}</h4>
+                                <h4 className="font-semibold text-slate-800 mb-1">{place.name}</h4>
                                 {place.neighborhood && (
-                                  <p className="text-sm text-gray-300 mb-2 flex items-center gap-1">
+                                  <p className="text-sm text-slate-600 mb-2 flex items-center gap-1">
                                     📍 {place.neighborhood}
                                   </p>
                                 )}
                                 {place.category && (
                                   <div className="flex items-center gap-2 mb-2">
                                     <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                                      place.category?.toLowerCase().includes('food') ? 'bg-amber-600/20 text-amber-300' :
-                                      place.category?.toLowerCase().includes('art') ? 'bg-rose-600/20 text-rose-300' :
+                                      place.category?.toLowerCase().includes('food') ? 'bg-amber-100 text-amber-700' :
+                                      place.category?.toLowerCase().includes('art') ? 'bg-rose-100 text-rose-700' :
                                       (place.category?.toLowerCase().includes('sight') || place.category?.toLowerCase().includes('culture') || 
                                        place.category?.toLowerCase().includes('temple') || place.category?.toLowerCase().includes('monument') ||
-                                       place.category?.toLowerCase().includes('landmark') || place.category?.toLowerCase().includes('tourist')) ? 'bg-violet-600/20 text-violet-300' : 'bg-slate-600/20 text-slate-300'
+                                       place.category?.toLowerCase().includes('landmark') || place.category?.toLowerCase().includes('tourist')) ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'
                                     }`}>
                                       {place.category?.toLowerCase().includes('food') ? '🍽️' :
                                        place.category?.toLowerCase().includes('art') ? '🎨' :
@@ -1921,10 +1921,10 @@ export default function TripPlanner() {
                                   </div>
                                 )}
                                 {place.notes && (
-                                  <p className="text-sm text-gray-400 leading-relaxed">{place.notes}</p>
+                                  <p className="text-sm text-slate-600 leading-relaxed">{place.notes}</p>
                                 )}
                                 {place.address && (
-                                  <p className="text-xs text-gray-500 mt-2">{place.address}</p>
+                                  <p className="text-xs text-slate-500 mt-2">{place.address}</p>
                                 )}
                               </div>
                             </div>
@@ -1933,11 +1933,11 @@ export default function TripPlanner() {
                         </div>
                       ) : (
                         <div className="text-center py-12">
-                          <div className="w-16 h-16 bg-gradient-to-r from-slate-600 to-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-sky-500 rounded-full flex items-center justify-center mx-auto mb-4">
                             🗺️
                           </div>
-                          <h4 className="text-lg font-semibold text-slate-300 mb-2">No Itinerary Yet</h4>
-                          <p className="text-sm text-slate-400">Generate an itinerary to see your places here</p>
+                          <h4 className="text-lg font-semibold text-slate-600 mb-2">No Itinerary Yet</h4>
+                          <p className="text-sm text-slate-500">Generate an itinerary to see your places here</p>
                         </div>
                       )}
                       
