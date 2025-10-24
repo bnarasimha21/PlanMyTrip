@@ -62,6 +62,7 @@ const POPUP_STYLES = `
 </style>`;
 
 export default function TripPlanner() {
+  const { user } = useAuth();
   const { subscriptionPlan, usage, limits, checkUsage } = useSubscription();
   const [tripRequest, setTripRequest] = useState('Plan a 1-day must see places in Hanoi');
   const [extracted, setExtracted] = useState<{ city: string; interests: string; days: number } | null>(null);
@@ -1071,7 +1072,7 @@ export default function TripPlanner() {
           city: req.city, 
           interests: req.interests, 
           days: req.days,
-          user_id: 'default',
+          user_id: user?.id || 'default',
           subscription_plan: subscriptionPlan
         }),
       });
@@ -1361,6 +1362,36 @@ export default function TripPlanner() {
               {/* Sidebar */}
               <div className="w-[520px] bg-white/95 backdrop-blur-xl border-r border-blue-200 overflow-hidden flex flex-col shadow-lg">
           <div className="p-6 space-y-6 flex-shrink-0">
+            {/* Subscription Status */}
+            {usage && limits && (
+              <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl p-4 border border-blue-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-slate-700">Subscription Status</h4>
+                  <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                    subscriptionPlan === 'premium' 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-blue-100 text-blue-700'
+                  }`}>
+                    {subscriptionPlan === 'premium' ? '⭐ Premium' : '🆓 Freemium'}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-600">
+                  {limits.max_trips_per_month === -1 ? (
+                    <span className="text-green-600">Unlimited trips this month</span>
+                  ) : (
+                    <span>
+                      {usage.trips_used} / {limits.max_trips_per_month} trips used this month
+                    </span>
+                  )}
+                </div>
+                {limits.max_days_per_trip && (
+                  <div className="text-xs text-slate-600 mt-1">
+                    Max {limits.max_days_per_trip} day{limits.max_days_per_trip !== 1 ? 's' : ''} per trip
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Trip Request Section with Voice Input */}
             <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl border border-blue-200 shadow-lg">
               <button
@@ -1476,36 +1507,6 @@ export default function TripPlanner() {
                         </span>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Subscription Status */}
-            {usage && limits && (
-              <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl p-4 border border-blue-200">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-semibold text-slate-700">Subscription Status</h4>
-                  <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                    subscriptionPlan === 'premium' 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-blue-100 text-blue-700'
-                  }`}>
-                    {subscriptionPlan === 'premium' ? '⭐ Premium' : '🆓 Freemium'}
-                  </span>
-                </div>
-                <div className="text-xs text-slate-600">
-                  {limits.max_trips_per_month === -1 ? (
-                    <span className="text-green-600">Unlimited trips this month</span>
-                  ) : (
-                    <span>
-                      {usage.trips_used} / {limits.max_trips_per_month} trips used this month
-                    </span>
-                  )}
-                </div>
-                {limits.max_days_per_trip && (
-                  <div className="text-xs text-slate-600 mt-1">
-                    Max {limits.max_days_per_trip} day{limits.max_days_per_trip !== 1 ? 's' : ''} per trip
                   </div>
                 )}
               </div>

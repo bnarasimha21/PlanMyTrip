@@ -23,9 +23,9 @@ const GoogleLogin: React.FC<GoogleLoginProps> = ({
   if (!clientId || clientId === 'your-google-client-id-here') {
     return (
       <div className={`${className} p-4 bg-yellow-500/20 border border-yellow-500/50 rounded-lg`}>
-        <div className="text-yellow-200 text-sm text-center">
-          <div className="font-semibold mb-1">⚠️ Google OAuth Not Configured</div>
-          <div className="text-xs">
+        <div className="text-yellow-200 text-base text-center">
+          <div className="font-semibold mb-1 text-lg">⚠️ Google OAuth Not Configured</div>
+          <div className="text-sm">
             Please set VITE_GOOGLE_CLIENT_ID in your .env file
           </div>
         </div>
@@ -55,7 +55,7 @@ const GoogleLogin: React.FC<GoogleLoginProps> = ({
           picture: userData.picture,
         };
         
-        login(user);
+        await login(user);
         onSuccess?.();
       }
     } catch (error) {
@@ -82,6 +82,27 @@ const GoogleLogin: React.FC<GoogleLoginProps> = ({
 
   return (
     <div className={`google-login-wrapper ${className}`}>
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .google-login-wrapper iframe {
+            font-size: 18px !important;
+          }
+          .google-login-wrapper div[role="button"] {
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            height: 52px !important;
+            min-height: 52px !important;
+          }
+          .google-login-wrapper div[role="button"] span {
+            font-size: 18px !important;
+            font-weight: 600 !important;
+          }
+          .google-login-wrapper div[role="button"] div {
+            font-size: 18px !important;
+            font-weight: 600 !important;
+          }
+        `
+      }} />
       <GoogleLoginButton
         onSuccess={handleSuccess}
         onError={handleError}

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 interface UsageInfo {
   trips_used: number;
@@ -37,12 +38,18 @@ interface SubscriptionProviderProps {
 }
 
 export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ children }) => {
+  const { user } = useAuth();
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null);
   const [usage, setUsage] = useState<UsageInfo | null>(null);
   const [limits, setLimits] = useState<SubscriptionLimits | null>(null);
 
   const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000';
+  
+  // Get the current user ID, fallback to 'default' if no user is logged in
+  const getCurrentUserId = () => {
+    return user?.id || 'default';
+  };
 
   const checkUsage = async (days?: number): Promise<boolean> => {
     try {
@@ -52,7 +59,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          user_id: 'default',
+          user_id: getCurrentUserId(),
           subscription_plan: subscriptionPlan,
           days: days
         }),
@@ -83,7 +90,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          user_id: 'default',
+          user_id: getCurrentUserId(),
           subscription_plan: subscriptionPlan
         }),
       });
@@ -102,6 +109,12 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   };
 
   useEffect(() => {
+    // If no user is logged in, clear subscription data
+    if (!user) {
+      clearSubscription();
+      return;
+    }
+
     // Check localStorage for existing subscription
     const savedSubscription = localStorage.getItem('subscription_plan');
     if (savedSubscription) {
@@ -126,7 +139,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     return () => {
       window.removeEventListener('subscriptionUpdated', handleSubscriptionUpdate as EventListener);
     };
-  }, []);
+  }, [user]); // Refresh when user changes
 
   const setSubscription = (plan: string) => {
     setSubscriptionPlan(plan);
