@@ -36,8 +36,8 @@ const UserProfile: React.FC<UserProfileProps> = ({
           }}
         />
         <div className="text-left">
-          <div className="text-sm font-medium text-white">{user.name}</div>
-          <div className="text-xs text-gray-400">{user.email}</div>
+          <div className="text-sm font-medium text-blue-600">{user.name}</div>
+          <div className="text-xs text-slate-600">{user.email}</div>
         </div>
         {showDropdown && (
           <svg
