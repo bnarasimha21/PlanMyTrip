@@ -40,6 +40,16 @@ const HomePage: React.FC = () => {
     setShowPaymentModal(true);
   };
 
+  const handleLearnMoreClick = () => {
+    const featuresSection = document.getElementById('features');
+    if (featuresSection) {
+      featuresSection.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-sky-100 text-slate-800 overflow-x-hidden">
       {/* Navigation */}
@@ -76,18 +86,21 @@ const HomePage: React.FC = () => {
                 Plan Your Perfect Trip
               </span>
             </h1>
-            <p className="text-xl md:text-2xl text-slate-600 mb-12 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl md:text-2xl text-slate-600 mb-6 max-w-3xl mx-auto leading-relaxed">
               AI-powered travel planning with interactive maps, voice assistance, and personalized itineraries. 
               Discover amazing places and create unforgettable memories.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-row gap-3 justify-center">
               <Link
                 to="/app"
-                className="bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 transform hover:scale-105 shadow-xl hover:shadow-2xl"
+                className="bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white px-6 py-3 rounded-lg font-medium text-base transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
               >
                 🚀 Start Planning
               </Link>
-              <button className="bg-white/80 hover:bg-white backdrop-blur-sm text-blue-600 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 border border-blue-200 shadow-lg">
+              <button 
+                onClick={handleLearnMoreClick}
+                className="bg-white/80 hover:bg-white backdrop-blur-sm text-blue-600 px-6 py-3 rounded-lg font-medium text-base transition-all duration-200 border border-blue-200 shadow-lg hover:shadow-xl"
+              >
                 📖 Learn More
               </button>
             </div>
@@ -103,7 +116,7 @@ const HomePage: React.FC = () => {
       </div>
 
       {/* Features Section */}
-      <div className="py-20 bg-blue-50/50 backdrop-blur-sm">
+      <div id="features" className="py-20 bg-blue-50/50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold mb-4">
