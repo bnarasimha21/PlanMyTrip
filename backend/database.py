@@ -10,7 +10,7 @@ from contextlib import contextmanager
 import json
 
 # Database file path
-DB_PATH = os.path.join(os.path.dirname(__file__), 'planmytrip.db')
+DB_PATH = os.path.join(os.path.dirname(__file__), 'tripxplorer.db')
 
 class DatabaseManager:
     def __init__(self, db_path: str = DB_PATH):

@@ -151,7 +151,7 @@ class PaymentService {
         key: RAZORPAY_KEY_ID,
         amount: orderResult.amount,
         currency: 'INR', // Force INR for Indian payment methods
-        name: 'Plan My Trip',
+        name: 'TripXplorer',
         description: 'Premium Subscription',
         order_id: orderResult.order_id,
         // Note: UPI may not be available in test mode
