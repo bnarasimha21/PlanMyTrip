@@ -58,7 +58,7 @@ const HomePage: React.FC = () => {
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-sky-600 bg-clip-text text-transparent">
-                ✈️ Plan My Trip
+                ✈️ TripXplorer
               </h1>
             </div>
             <div className="flex items-center gap-4">
@@ -121,7 +121,7 @@ const HomePage: React.FC = () => {
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold mb-4">
               <span className="bg-gradient-to-r from-blue-600 to-sky-600 bg-clip-text text-transparent">
-                Why Choose Plan My Trip?
+                Why Choose TripXplorer?
               </span>
             </h2>
             <p className="text-xl text-slate-600 max-w-2xl mx-auto">
@@ -363,7 +363,7 @@ const HomePage: React.FC = () => {
             to="/app"
             className="inline-block bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white px-12 py-4 rounded-xl font-semibold text-xl transition-all duration-200 transform hover:scale-105 shadow-xl hover:shadow-2xl"
           >
-            🚀 Plan My Trip Now
+            🚀 TripXplorer Now
           </Link>
         </div>
       </div>
@@ -373,7 +373,7 @@ const HomePage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center">
             <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-sky-600 bg-clip-text text-transparent mb-4">
-              ✈️ Plan My Trip
+              ✈️ TripXplorer
             </h3>
             <p className="text-slate-600 mb-6">
               AI-powered travel planning for the modern explorer
@@ -390,7 +390,7 @@ const HomePage: React.FC = () => {
               </a>
             </div>
             <p className="text-slate-400 text-sm mt-6">
-              © 2024 Plan My Trip. All rights reserved.
+              © 2024 TripXplorer. All rights reserved.
             </p>
           </div>
         </div>

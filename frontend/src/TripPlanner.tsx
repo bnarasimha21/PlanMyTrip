@@ -1346,7 +1346,7 @@ export default function TripPlanner() {
           <div>
             <Link to="/" className="inline-block group">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-sky-600 to-blue-500 bg-clip-text text-transparent group-hover:from-blue-700 group-hover:via-sky-700 group-hover:to-blue-600 transition-all duration-200">
-                ✈️ Plan My Trip
+                ✈️ TripXplorer
               </h1>
             </Link>
             <p className="text-sm text-slate-600 mt-1">AI-powered travel planning with interactive maps</p>

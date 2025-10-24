@@ -25,7 +25,7 @@ except ImportError:
     GTTS_AVAILABLE = False
     print("GTTS not available. Install with: pip install gtts")
 
-app = FastAPI(title="LetMePlanMyTrip API (LangGraph)", version="2.0.0")
+app = FastAPI(title="TripXplorer API (LangGraph)", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -186,7 +186,7 @@ class PaymentVerificationRequest(BaseModel):
 
 @app.get("/")
 def home() -> Dict[str, Any]:
-    return {"status": "ok", "message": "LetMePlanMyTrip API (LangGraph) is running"}
+    return {"status": "ok", "message": "TripXplorer API (LangGraph) is running"}
 
 @app.get("/health")
 def health() -> Dict[str, Any]:

@@ -1,6 +1,6 @@
-# ✈️ Let Me Plan My Trip
+# ✈️ TripXplorer
 
-[![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/bnarasimha21/PlanMyTrip/tree/main)
+[![Deploy to DO](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/bnarasimha21/TripXplorer/tree/main)
 
 An AI-powered travel planning application that generates personalized itineraries with interactive maps and intelligent conversation features.
 
@@ -49,8 +49,8 @@ An AI-powered travel planning application that generates personalized itinerarie
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/LetMePlanMyTrip.git
-cd LetMePlanMyTrip
+git clone https://github.com/your-username/TripXplorer.git
+cd TripXplorer
 ```
 
 ### 2. Backend Setup
@@ -176,7 +176,7 @@ Modify existing itinerary based on user instructions.
 
 ### **Project Structure**
 ```
-LetMePlanMyTrip/
+TripXplorer/
 ├── backend/
 │   ├── agents.py          # CrewAI agents and tasks
 │   ├── api.py            # FastAPI application
