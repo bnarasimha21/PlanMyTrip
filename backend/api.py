@@ -1,16 +1,21 @@
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any, List, Optional, Dict
 import io
 import tempfile
 import os
+import json
+from datetime import datetime, timedelta
 
 # Import the new simplified workflow
 from agents.simple_workflow import trip_workflow
 
 # Import payment service
 from payment_service import payment_service
+
+# Import database manager
+from database import db_manager
 
 # Import GTTS for text-to-speech
 try:
@@ -30,6 +35,91 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Subscription plan limits
+SUBSCRIPTION_LIMITS = {
+    "freemium": {
+        "max_trips_per_month": 3,
+        "max_days_per_trip": 1,
+        "features": ["basic_ai", "interactive_maps", "basic_voice", "community_support"]
+    },
+    "premium": {
+        "max_trips_per_month": -1,  # -1 means unlimited
+        "max_days_per_trip": 30,
+        "features": ["unlimited_trips", "advanced_ai", "route_optimization", "multi_day", "advanced_voice", "priority_support", "export", "offline_maps", "weather", "budget_tracking", "group_planning"]
+    }
+}
+
+def get_user_subscription_plan(user_id: str = "default") -> str:
+    """Get user's subscription plan from database."""
+    try:
+        user_data = db_manager.get_user(user_id)
+        if user_data and user_data.get('plan'):
+            return user_data['plan']
+        return "freemium"  # Default to freemium
+    except Exception as e:
+        print(f"Error getting user subscription plan: {e}")
+        return "freemium"
+
+def check_usage_limit(user_id: str, plan: str, current_month: str) -> Dict[str, Any]:
+    """Check if user has exceeded their usage limits."""
+    if plan not in SUBSCRIPTION_LIMITS:
+        plan = "freemium"
+    
+    limits = SUBSCRIPTION_LIMITS[plan]
+    
+    try:
+        # Get usage from database
+        usage_data = db_manager.get_usage(user_id, current_month)
+        trips_used = usage_data.get('trips_used', 0)
+        max_trips = limits["max_trips_per_month"]
+        
+        # Check trip limit
+        if max_trips != -1 and trips_used >= max_trips:
+            return {
+                "allowed": False,
+                "reason": "trip_limit_exceeded",
+                "message": f"You've reached your monthly limit of {max_trips} trip plans. Upgrade to Premium for unlimited trips!",
+                "usage": {"trips_used": trips_used, "max_trips": max_trips}
+            }
+        
+        return {
+            "allowed": True,
+            "usage": {"trips_used": trips_used, "max_trips": max_trips}
+        }
+    except Exception as e:
+        print(f"Error checking usage limit: {e}")
+        return {
+            "allowed": False,
+            "reason": "error",
+            "message": "Error checking usage limits. Please try again.",
+            "usage": {"trips_used": 0, "max_trips": 3}
+        }
+
+def check_days_limit(plan: str, days: int) -> Dict[str, Any]:
+    """Check if the requested trip duration is allowed for the plan."""
+    if plan not in SUBSCRIPTION_LIMITS:
+        plan = "freemium"
+    
+    limits = SUBSCRIPTION_LIMITS[plan]
+    max_days = limits["max_days_per_trip"]
+    
+    if days > max_days:
+        return {
+            "allowed": False,
+            "reason": "days_limit_exceeded",
+            "message": f"Your {plan} plan allows up to {max_days} day{'s' if max_days != 1 else ''} per trip. Upgrade to Premium for up to 30 days!",
+            "usage": {"requested_days": days, "max_days": max_days}
+        }
+    
+    return {"allowed": True}
+
+def increment_usage(user_id: str, current_month: str):
+    """Increment user's monthly trip usage in database."""
+    try:
+        db_manager.increment_usage(user_id, current_month)
+    except Exception as e:
+        print(f"Error incrementing usage: {e}")
+
 class ExtractRequest(BaseModel):
     text: str
 
@@ -38,6 +128,8 @@ class ItineraryRequest(BaseModel):
     interests: Optional[str] = None
     days: Optional[int] = None
     trip_request: Optional[str] = None
+    user_id: Optional[str] = "default"
+    subscription_plan: Optional[str] = None
 
 class Place(BaseModel):
     name: str
@@ -71,6 +163,27 @@ class VerifyPaymentRequest(BaseModel):
     razorpay_payment_id: str
     razorpay_signature: str
 
+class SubscriptionCheckRequest(BaseModel):
+    user_id: Optional[str] = "default"
+    subscription_plan: Optional[str] = None
+
+class UsageRequest(BaseModel):
+    user_id: Optional[str] = "default"
+    subscription_plan: Optional[str] = None
+    days: Optional[int] = None
+
+class UserRequest(BaseModel):
+    user_id: str
+    email: Optional[str] = None
+    name: Optional[str] = None
+    google_id: Optional[str] = None
+
+class PaymentVerificationRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    user_id: Optional[str] = "default"
+
 @app.get("/")
 def home() -> Dict[str, Any]:
     return {"status": "ok", "message": "LetMePlanMyTrip API (LangGraph) is running"}
@@ -93,6 +206,10 @@ def extract(req: ExtractRequest) -> Dict[str, Any]:
 def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
     """Generate itinerary using LangGraph agents"""
     try:
+        # Get user subscription plan
+        user_id = req.user_id or "default"
+        subscription_plan = req.subscription_plan or get_user_subscription_plan(user_id)
+        
         if req.trip_request and not (req.city and req.interests and req.days):
             # Extract details first if needed
             extracted = trip_workflow.extract_trip_request(req.trip_request)
@@ -104,7 +221,52 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
             interests = req.interests or "art, food"
             days = req.days or 1
 
+        # Check days limit
+        days_check = check_days_limit(subscription_plan, days)
+        if not days_check["allowed"]:
+            return {
+                "error": True,
+                "type": "subscription_limit",
+                "message": days_check["message"],
+                "details": days_check,
+                "city": city,
+                "interests": interests,
+                "days": days,
+                "places": []
+            }
+
+        # Check monthly usage limit
+        current_month = datetime.now().strftime("%Y-%m")
+        usage_check = check_usage_limit(user_id, subscription_plan, current_month)
+        if not usage_check["allowed"]:
+            return {
+                "error": True,
+                "type": "subscription_limit",
+                "message": usage_check["message"],
+                "details": usage_check,
+                "city": city,
+                "interests": interests,
+                "days": days,
+                "places": []
+            }
+
+        # Generate itinerary
         result = trip_workflow.generate_itinerary(city=city, interests=interests, days=days)
+        
+        # Increment usage counter
+        increment_usage(user_id, current_month)
+        
+        # Record trip in database for analytics
+        places_count = len(result.get("places", []))
+        db_manager.record_trip(user_id, city, interests, days, places_count)
+        
+        # Add subscription info to result
+        result["subscription_info"] = {
+            "plan": subscription_plan,
+            "usage": usage_check.get("usage", {}),
+            "features": SUBSCRIPTION_LIMITS[subscription_plan]["features"]
+        }
+        
         return result
 
     except Exception as e:
@@ -114,7 +276,9 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
             "interests": interests if 'interests' in locals() else "art, food",
             "days": days if 'days' in locals() else 1,
             "places": [],
-            "raw_research_text": None
+            "raw_research_text": None,
+            "error": True,
+            "message": "Error generating itinerary"
         }
 
 @app.post("/modify")
@@ -198,14 +362,33 @@ def create_payment_order(req: CreateOrderRequest) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 @app.post("/payment/verify")
-def verify_payment(req: VerifyPaymentRequest) -> Dict[str, Any]:
-    """Verify Razorpay payment signature"""
+def verify_payment(req: PaymentVerificationRequest) -> Dict[str, Any]:
+    """Verify Razorpay payment signature and upgrade subscription"""
     try:
+        # Verify payment with Razorpay
         result = payment_service.verify_payment(
             razorpay_order_id=req.razorpay_order_id,
             razorpay_payment_id=req.razorpay_payment_id,
             razorpay_signature=req.razorpay_signature
         )
+        
+        if result.get("success") and result.get("verified"):
+            # Payment verified, upgrade user to premium
+            upgrade_success = db_manager.update_subscription(
+                user_id=req.user_id,
+                plan="premium",
+                payment_id=req.razorpay_payment_id,
+                amount_paid=1.00,
+                currency="INR"
+            )
+            
+            if upgrade_success:
+                result["message"] = "Payment successful! Welcome to Premium! You now have unlimited trip plans and up to 30-day itineraries."
+                result["subscription_upgraded"] = True
+            else:
+                result["message"] = "Payment verified but subscription upgrade failed. Please contact support."
+                result["subscription_upgraded"] = False
+        
         return result
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -216,6 +399,158 @@ def get_payment_details(payment_id: str) -> Dict[str, Any]:
     try:
         result = payment_service.get_payment_details(payment_id)
         return result
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/subscription/check")
+def check_subscription(req: SubscriptionCheckRequest) -> Dict[str, Any]:
+    """Check user's subscription status and limits"""
+    try:
+        user_id = req.user_id or "default"
+        subscription_plan = req.subscription_plan or get_user_subscription_plan(user_id)
+        current_month = datetime.now().strftime("%Y-%m")
+        
+        usage_check = check_usage_limit(user_id, subscription_plan, current_month)
+        limits = SUBSCRIPTION_LIMITS.get(subscription_plan, SUBSCRIPTION_LIMITS["freemium"])
+        
+        return {
+            "success": True,
+            "subscription_plan": subscription_plan,
+            "limits": limits,
+            "usage": usage_check.get("usage", {}),
+            "can_create_trip": usage_check["allowed"]
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/subscription/usage")
+def check_usage(req: UsageRequest) -> Dict[str, Any]:
+    """Check if user can create a trip with given parameters"""
+    try:
+        user_id = req.user_id or "default"
+        subscription_plan = req.subscription_plan or get_user_subscription_plan(user_id)
+        current_month = datetime.now().strftime("%Y-%m")
+        
+        # Check trip count limit
+        usage_check = check_usage_limit(user_id, subscription_plan, current_month)
+        if not usage_check["allowed"]:
+            return {
+                "success": True,
+                "allowed": False,
+                "reason": "trip_limit_exceeded",
+                "message": usage_check["message"],
+                "details": usage_check
+            }
+        
+        # Check days limit if provided
+        if req.days:
+            days_check = check_days_limit(subscription_plan, req.days)
+            if not days_check["allowed"]:
+                return {
+                    "success": True,
+                    "allowed": False,
+                    "reason": "days_limit_exceeded",
+                    "message": days_check["message"],
+                    "details": days_check
+                }
+        
+        return {
+            "success": True,
+            "allowed": True,
+            "subscription_plan": subscription_plan,
+            "usage": usage_check.get("usage", {}),
+            "limits": SUBSCRIPTION_LIMITS.get(subscription_plan, SUBSCRIPTION_LIMITS["freemium"])
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/subscription/upgrade")
+def upgrade_subscription(req: SubscriptionCheckRequest) -> Dict[str, Any]:
+    """Upgrade user subscription"""
+    try:
+        user_id = req.user_id or "default"
+        subscription_plan = req.subscription_plan or "premium"
+        
+        # Update subscription in database
+        success = db_manager.update_subscription(
+            user_id=user_id,
+            plan=subscription_plan,
+            payment_id=f"upgrade_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            amount_paid=1.00,
+            currency="INR"
+        )
+        
+        if success:
+            return {
+                "success": True,
+                "message": f"Successfully upgraded to {subscription_plan} plan!",
+                "subscription_plan": subscription_plan
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Failed to upgrade subscription. Please try again."
+            }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/user/create")
+def create_user(req: UserRequest) -> Dict[str, Any]:
+    """Create a new user"""
+    try:
+        success = db_manager.create_user(
+            user_id=req.user_id,
+            email=req.email,
+            name=req.name,
+            google_id=req.google_id
+        )
+        
+        if success:
+            return {
+                "success": True,
+                "message": "User created successfully",
+                "user_id": req.user_id
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Failed to create user"
+            }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/user/{user_id}")
+def get_user(user_id: str) -> Dict[str, Any]:
+    """Get user information and subscription details"""
+    try:
+        user_data = db_manager.get_user(user_id)
+        
+        if user_data:
+            # Get user statistics
+            stats = db_manager.get_user_stats(user_id)
+            
+            return {
+                "success": True,
+                "user": user_data,
+                "stats": stats
+            }
+        else:
+            return {
+                "success": False,
+                "error": "User not found"
+            }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/user/{user_id}/stats")
+def get_user_stats(user_id: str) -> Dict[str, Any]:
+    """Get user statistics"""
+    try:
+        stats = db_manager.get_user_stats(user_id)
+        return {
+            "success": True,
+            "stats": stats
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 

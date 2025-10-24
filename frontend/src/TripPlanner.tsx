@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import { useSubscription } from './SubscriptionContext';
 import UserProfile from './UserProfile';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -61,6 +62,7 @@ const POPUP_STYLES = `
 </style>`;
 
 export default function TripPlanner() {
+  const { subscriptionPlan, usage, limits, checkUsage } = useSubscription();
   const [tripRequest, setTripRequest] = useState('Plan a 1-day must see places in Hanoi');
   const [extracted, setExtracted] = useState<{ city: string; interests: string; days: number } | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
@@ -77,6 +79,7 @@ export default function TripPlanner() {
   const [hasGeneratedItinerary, setHasGeneratedItinerary] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [animationRoute, setAnimationRoute] = useState<number[][]>([]);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -1043,19 +1046,44 @@ export default function TripPlanner() {
       setStatus('Set VITE_API_BASE in frontend/.env');
       return;
     }
+    
+    setSubscriptionError(null);
     setStatus('Generating itinerary...');
+    
     try {
       const req = extracted || (await (await fetch(`${API_BASE}/extract`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ text: tripRequest }) 
       })).json());
+      
+      // Check subscription limits before generating itinerary
+      const canProceed = await checkUsage(req.days);
+      if (!canProceed) {
+        setStatus('');
+        return;
+      }
+      
       const resp = await fetch(`${API_BASE}/itinerary`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ city: req.city, interests: req.interests, days: req.days }),
+        body: JSON.stringify({ 
+          city: req.city, 
+          interests: req.interests, 
+          days: req.days,
+          user_id: 'default',
+          subscription_plan: subscriptionPlan
+        }),
       });
       const data = await resp.json();
+      
+      // Check if there was a subscription error
+      if (data.error && data.type === 'subscription_limit') {
+        setSubscriptionError(data.message);
+        setStatus('');
+        return;
+      }
+      
       setPlaces(data.places || []);
       setHasGeneratedItinerary(true);
       setIsTripRequestCollapsed(true); // Auto-collapse Trip Request after generating itinerary
@@ -1316,20 +1344,15 @@ export default function TripPlanner() {
       <div className="bg-white/90 backdrop-blur-md border-b border-blue-200 shadow-lg">
         <div className="px-6 py-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-sky-600 to-blue-500 bg-clip-text text-transparent">
-              ✈️ Plan My Trip
-            </h1>
+            <Link to="/" className="inline-block group">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-sky-600 to-blue-500 bg-clip-text text-transparent group-hover:from-blue-700 group-hover:via-sky-700 group-hover:to-blue-600 transition-all duration-200">
+                ✈️ Plan My Trip
+              </h1>
+            </Link>
             <p className="text-sm text-slate-600 mt-1">AI-powered travel planning with interactive maps</p>
           </div>
           <div className="flex items-center gap-4">
             <UserProfile />
-            <Link
-              to="/"
-              className="flex items-center gap-2 text-slate-600 hover:text-blue-600 transition-colors duration-200 group bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg border border-blue-200 hover:border-blue-300"
-            >
-              <span className="text-xl group-hover:scale-110 transition-transform duration-200">🏠</span>
-              <span className="font-medium">Home</span>
-            </Link>
           </div>
         </div>
       </div>
@@ -1455,6 +1478,55 @@ export default function TripPlanner() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Subscription Status */}
+            {usage && limits && (
+              <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl p-4 border border-blue-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-slate-700">Subscription Status</h4>
+                  <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                    subscriptionPlan === 'premium' 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-blue-100 text-blue-700'
+                  }`}>
+                    {subscriptionPlan === 'premium' ? '⭐ Premium' : '🆓 Freemium'}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-600">
+                  {limits.max_trips_per_month === -1 ? (
+                    <span className="text-green-600">Unlimited trips this month</span>
+                  ) : (
+                    <span>
+                      {usage.trips_used} / {limits.max_trips_per_month} trips used this month
+                    </span>
+                  )}
+                </div>
+                {limits.max_days_per_trip && (
+                  <div className="text-xs text-slate-600 mt-1">
+                    Max {limits.max_days_per_trip} day{limits.max_days_per_trip !== 1 ? 's' : ''} per trip
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Subscription Error */}
+            {subscriptionError && (
+              <div className="bg-red-50 rounded-2xl p-4 border border-red-200">
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center text-red-600 text-sm">⚠️</div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold text-red-800 mb-1">Subscription Limit Reached</h4>
+                    <p className="text-sm text-red-700 mb-3">{subscriptionError}</p>
+                    <Link
+                      to="/"
+                      className="inline-block bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 transform hover:scale-105"
+                    >
+                      Upgrade to Premium
+                    </Link>
+                  </div>
+                </div>
               </div>
             )}
 

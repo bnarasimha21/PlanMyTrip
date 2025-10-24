@@ -52,12 +52,6 @@ const HomePage: React.FC = () => {
               </h1>
             </div>
             <div className="flex items-center gap-4">
-              <Link
-                to="/app"
-                className="bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg"
-              >
-                Get Started
-              </Link>
               {isLoading ? (
                 <div className="w-8 h-8 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
               ) : isAuthenticated ? (

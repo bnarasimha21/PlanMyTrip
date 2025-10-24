@@ -98,7 +98,10 @@ class PaymentService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(verificationData),
+        body: JSON.stringify({
+          ...verificationData,
+          user_id: 'default' // In a real app, this would come from user context
+        }),
       });
 
       const result = await response.json();
@@ -181,7 +184,7 @@ class PaymentService {
               }));
               // Trigger payment success event to close modal
               window.dispatchEvent(new CustomEvent('paymentSuccess'));
-              alert('Payment successful! Welcome to Premium!');
+              alert('Payment successful! Welcome to Premium! You now have unlimited trip plans and up to 30-day itineraries.');
             } else {
               console.error('Payment verification failed:', verificationResult.error);
               alert('Payment verification failed. Please try again.');
