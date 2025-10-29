@@ -256,15 +256,23 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
         # Increment usage counter
         increment_usage(user_id, current_month)
         
+        # Get updated usage after increment
+        updated_usage_data = db_manager.get_usage(user_id, current_month)
+        updated_trips_used = updated_usage_data.get('trips_used', 0)
+        
         # Record trip in database for analytics
         places_count = len(result.get("places", []))
         db_manager.record_trip(user_id, city, interests, days, places_count)
         
-        # Add subscription info to result
+        # Add subscription info to result with updated usage
+        limits = SUBSCRIPTION_LIMITS[subscription_plan]
         result["subscription_info"] = {
             "plan": subscription_plan,
-            "usage": usage_check.get("usage", {}),
-            "features": SUBSCRIPTION_LIMITS[subscription_plan]["features"]
+            "usage": {
+                "trips_used": updated_trips_used,
+                "max_trips": limits["max_trips_per_month"]
+            },
+            "features": limits["features"]
         }
         
         return result
@@ -490,6 +498,60 @@ def upgrade_subscription(req: SubscriptionCheckRequest) -> Dict[str, Any]:
             return {
                 "success": False,
                 "error": "Failed to upgrade subscription. Please try again."
+            }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/subscription/update")
+def update_subscription(req: SubscriptionCheckRequest) -> Dict[str, Any]:
+    """Update user subscription plan (upgrade or downgrade)"""
+    try:
+        user_id = req.user_id or "default"
+        subscription_plan = req.subscription_plan
+        
+        if not subscription_plan:
+            return {
+                "success": False,
+                "error": "Subscription plan is required"
+            }
+        
+        if subscription_plan not in ["freemium", "premium"]:
+            return {
+                "success": False,
+                "error": "Invalid subscription plan. Must be 'freemium' or 'premium'"
+            }
+        
+        # Get current plan
+        current_plan = get_user_subscription_plan(user_id)
+        
+        # Update subscription in database
+        payment_id = None
+        amount_paid = None
+        if subscription_plan == "premium" and current_plan != "premium":
+            payment_id = f"upgrade_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            amount_paid = 1.00
+        elif subscription_plan == "freemium" and current_plan == "premium":
+            payment_id = f"downgrade_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            amount_paid = 0.00
+        
+        success = db_manager.update_subscription(
+            user_id=user_id,
+            plan=subscription_plan,
+            payment_id=payment_id,
+            amount_paid=amount_paid,
+            currency="INR"
+        )
+        
+        if success:
+            return {
+                "success": True,
+                "message": f"Successfully updated to {subscription_plan} plan!",
+                "subscription_plan": subscription_plan
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Failed to update subscription. Please try again."
             }
     except Exception as e:
         return {"success": False, "error": str(e)}

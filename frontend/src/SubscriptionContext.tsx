@@ -134,10 +134,23 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
       setTimeout(() => refreshUsage(), 1000);
     };
 
+    // Listen for usage updates (e.g., after generating itinerary)
+    const handleUsageUpdate = (event: CustomEvent) => {
+      const { usage, limits: updatedLimits } = event.detail;
+      if (usage) {
+        setUsage(usage);
+      }
+      if (updatedLimits) {
+        setLimits(updatedLimits);
+      }
+    };
+
     window.addEventListener('subscriptionUpdated', handleSubscriptionUpdate as EventListener);
+    window.addEventListener('usageUpdated', handleUsageUpdate as EventListener);
 
     return () => {
       window.removeEventListener('subscriptionUpdated', handleSubscriptionUpdate as EventListener);
+      window.removeEventListener('usageUpdated', handleUsageUpdate as EventListener);
     };
   }, [user]); // Refresh when user changes
 

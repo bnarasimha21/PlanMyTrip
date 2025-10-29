@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import { useSubscription } from './SubscriptionContext';
 import UserProfile from './UserProfile';
 import SubscriptionStatus from './SubscriptionStatus';
+import GoogleLogin from './GoogleLogin';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 // @ts-ignore annyang has imperfect types
@@ -63,8 +64,8 @@ const POPUP_STYLES = `
 </style>`;
 
 export default function TripPlanner() {
-  const { user } = useAuth();
-  const { subscriptionPlan, usage, limits, checkUsage } = useSubscription();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const { subscriptionPlan, usage, limits, checkUsage, refreshUsage } = useSubscription();
   const [tripRequest, setTripRequest] = useState('Plan a 1-day must see places in Hanoi');
   const [extracted, setExtracted] = useState<{ city: string; interests: string; days: number } | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
@@ -1044,6 +1045,11 @@ export default function TripPlanner() {
   };
 
   const doItinerary = async () => {
+    if (!user) {
+      setStatus('Please login to generate itineraries');
+      alert('Please login to generate itineraries.');
+      return;
+    }
     if (!API_BASE) {
       setStatus('Set VITE_API_BASE in frontend/.env');
       return;
@@ -1091,6 +1097,37 @@ export default function TripPlanner() {
       setIsTripRequestCollapsed(true); // Auto-collapse Trip Request after generating itinerary
       setIsExtractedCollapsed(true); // Collapse Trip Details after generating itinerary
       setStatus('');
+      
+      // Update subscription usage immediately from response if available
+      // This updates the trip count in the header panel without additional API call
+      if (data.subscription_info && data.subscription_info.usage) {
+        // Dispatch event to update subscription context immediately
+        const maxDaysPerTrip = limits?.max_days_per_trip || (subscriptionPlan === 'premium' ? 30 : 1);
+        const updatedLimits = {
+          max_trips_per_month: data.subscription_info.usage.max_trips,
+          max_days_per_trip: maxDaysPerTrip,
+          features: data.subscription_info.features || []
+        };
+        
+        window.dispatchEvent(new CustomEvent('usageUpdated', {
+          detail: { 
+            usage: data.subscription_info.usage,
+            limits: updatedLimits
+          }
+        }));
+        
+        // Also refresh to ensure consistency (small delay)
+        if (refreshUsage) {
+          setTimeout(() => {
+            refreshUsage();
+          }, 300);
+        }
+      } else if (refreshUsage) {
+        // Fallback: refresh usage if subscription_info not available
+        setTimeout(() => {
+          refreshUsage();
+        }, 500);
+      }
     } catch (error) {
       setStatus('Error generating itinerary');
     }
@@ -1340,6 +1377,20 @@ export default function TripPlanner() {
     }
   };
 
+  // Note: we no longer hard-block unauthenticated users here; we show a soft banner instead
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-sky-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-sky-100 text-slate-800">
       {/* Header */}
@@ -1354,8 +1405,14 @@ export default function TripPlanner() {
             <p className="text-sm text-slate-600 mt-1">AI-powered travel planning with interactive maps</p>
           </div>
           <div className="flex items-center gap-4 relative z-50">
-            <SubscriptionStatus />
-            <UserProfile />
+            {isAuthenticated ? (
+              <>
+                <SubscriptionStatus />
+                <UserProfile />
+              </>
+            ) : (
+              <GoogleLogin className="w-48" />
+            )}
           </div>
         </div>
       </div>
@@ -1406,7 +1463,8 @@ export default function TripPlanner() {
                     value={tripRequest}
                     onChange={(e) => setTripRequest(e.target.value)}
                     rows={2}
-                    className="w-full bg-white border border-blue-200 rounded-xl p-4 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none mb-4 shadow-sm text-xl"
+                    className="w-full bg-white border border-blue-200 rounded-xl p-4 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none mb-4 shadow-sm text-xl font-sans"
+                    style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif" }}
                     placeholder="Describe your dream trip... e.g., 'Plan a 3-day art and food tour in Paris'"
                   />
                   
@@ -1662,7 +1720,8 @@ export default function TripPlanner() {
                           value={chatInput}
                           onChange={(e) => setChatInput(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
-                          className="w-full bg-white border border-blue-200 rounded-xl p-4 text-slate-800 text-lg placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                          className="w-full bg-white border border-blue-200 rounded-xl p-4 text-slate-800 text-lg placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 font-sans"
+                          style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif" }}
                           placeholder="💡 Try: &quot;Add a restaurant&quot;, &quot;What's nearby?&quot;, or &quot;Best route?&quot;"
                         />
                       </div>

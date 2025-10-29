@@ -5,6 +5,7 @@ import { AuthProvider } from './AuthContext';
 import { SubscriptionProvider } from './SubscriptionContext';
 import HomePage from './HomePage';
 import TripPlanner from './TripPlanner';
+import Settings from './Settings';
 
 // You'll need to get this from Google Cloud Console
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -22,6 +23,7 @@ function App() {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/app" element={<TripPlanner />} />
+              <Route path="/settings" element={<Settings />} />
             </Routes>
           </Router>
         </SubscriptionProvider>
