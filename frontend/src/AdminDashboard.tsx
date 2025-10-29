@@ -44,7 +44,7 @@ const AdminDashboard: React.FC = () => {
       }
     };
     fetchStats();
-  }, []);
+  }, [API_BASE]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-sky-100 text-slate-800">
@@ -196,16 +196,20 @@ const AdminDashboard: React.FC = () => {
                 <h3 className="text-lg font-semibold text-slate-800 mb-4">Trips per Day (Last 14 days)</h3>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {stats.trips_per_day_14 && Object.keys(stats.trips_per_day_14).length > 0 ? (
-                    Object.entries(stats.trips_per_day_14).map(([date, count]) => (
-                      <div key={date} className="flex items-center gap-3">
-                        <div className="w-24 text-xs text-slate-500">{new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                        <div className="flex-1 bg-blue-100 rounded h-6 flex items-center">
-                          <div className="bg-blue-500 h-6 rounded flex items-center justify-end pr-2" style={{ width: `${Math.min(100, ((count as number) / Math.max(1, Math.max(...Object.values(stats.trips_per_day_14).map(v => v as number)))) * 100)}%` }}>
-                            {(count as number) > 0 && <span className="text-xs text-white font-medium">{count as number}</span>}
+                    (() => {
+                      const tripsData = stats.trips_per_day_14;
+                      const maxCount = Math.max(1, Math.max(...Object.values(tripsData).map(v => v as number)));
+                      return Object.entries(tripsData).map(([date, count]) => (
+                        <div key={date} className="flex items-center gap-3">
+                          <div className="w-24 text-xs text-slate-500">{new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                          <div className="flex-1 bg-blue-100 rounded h-6 flex items-center">
+                            <div className="bg-blue-500 h-6 rounded flex items-center justify-end pr-2" style={{ width: `${Math.min(100, ((count as number) / maxCount) * 100)}%` }}>
+                              {(count as number) > 0 && <span className="text-xs text-white font-medium">{count as number}</span>}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      ));
+                    })()
                   ) : (
                     <div className="text-sm text-slate-500">No trips in the last 14 days</div>
                   )}
