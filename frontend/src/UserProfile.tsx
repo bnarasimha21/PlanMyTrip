@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000';
 import { useAuth } from './AuthContext';
 
 interface UserProfileProps {
@@ -14,6 +15,22 @@ const UserProfile: React.FC<UserProfileProps> = ({
   const { user, logout } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const fetchRole = async () => {
+      if (!user) return;
+      try {
+        const resp = await fetch(`${API_BASE}/user/${user.id}`);
+        const data = await resp.json();
+        if (data.success && data.user) {
+          const adminFlag = data.user.IsAdmin === 1 || data.user.isAdmin === 1 || data.user.role === 'admin';
+          setIsAdmin(!!adminFlag);
+        }
+      } catch {}
+    };
+    fetchRole();
+  }, [user]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -103,6 +120,18 @@ const UserProfile: React.FC<UserProfileProps> = ({
           </div>
           
           <div className="p-3 space-y-2">
+            {isAdmin && (
+              <Link
+                to="/admin"
+                onClick={() => setIsDropdownOpen(false)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors duration-200 text-base font-medium cursor-pointer"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm8.485 3a8.485 8.485 0 11-16.97 0 8.485 8.485 0 0116.97 0z" />
+                </svg>
+                Dashboard
+              </Link>
+            )}
             <Link
               to="/settings"
               onClick={() => setIsDropdownOpen(false)}
