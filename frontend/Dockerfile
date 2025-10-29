@@ -14,10 +14,12 @@ COPY . ./
 # Build-time args for Vite env (only VITE_* are exposed to client)
 ARG VITE_API_BASE
 ARG VITE_MAPBOX_TOKEN
+ARG VITE_GOOGLE_CLIENT_ID
 
 # Export as env so the build step can read them
 ENV VITE_API_BASE=$VITE_API_BASE
 ENV VITE_MAPBOX_TOKEN=$VITE_MAPBOX_TOKEN
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 
 # Create a non-root user first
 RUN addgroup --system --gid 1001 nodejs \

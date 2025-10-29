@@ -15,6 +15,15 @@ spec:
     - key: REACT_APP_API_URL
       scope: RUN_AND_BUILD_TIME
       value: ${APP_URL}/backend
+    - key: VITE_API_BASE
+      scope: BUILD_TIME
+      value: ${APP_URL}
+    - key: VITE_MAPBOX_TOKEN
+      scope: BUILD_TIME
+      value: ${VITE_MAPBOX_TOKEN}
+    - key: VITE_GOOGLE_CLIENT_ID
+      scope: BUILD_TIME
+      value: ${VITE_GOOGLE_CLIENT_ID}
 
   - name: backend
     git:
