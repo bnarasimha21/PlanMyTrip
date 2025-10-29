@@ -33,11 +33,19 @@ const UserProfile: React.FC<UserProfileProps> = ({
 
   if (!user) return null;
 
-  const handleLogout = () => {
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     console.log('🔄 Sign out button clicked');
-    logout();
+    
+    // Close dropdown first
     setIsDropdownOpen(false);
-    console.log('✅ Sign out completed');
+    
+    // Then logout with a small delay to ensure dropdown closes
+    setTimeout(() => {
+      logout();
+      console.log('✅ Sign out completed');
+    }, 100);
   };
 
   return (
@@ -74,7 +82,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
       </button>
 
       {showDropdown && isDropdownOpen && (
-        <div className="absolute -right-8 mt-2 w-64 sm:w-72 max-w-[calc(100vw-4rem)] bg-white/95 backdrop-blur-sm rounded-xl border border-blue-200 shadow-xl z-50">
+        <div className="absolute -right-8 mt-2 w-64 sm:w-72 max-w-[calc(100vw-4rem)] bg-white/95 backdrop-blur-sm rounded-xl border border-blue-200 shadow-xl z-[100]">
           <div className="p-4 border-b border-blue-200">
             <div className="flex items-center gap-3">
               <img
@@ -96,7 +104,8 @@ const UserProfile: React.FC<UserProfileProps> = ({
           <div className="p-3">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-200 text-base font-medium"
+              className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-200 text-base font-medium cursor-pointer"
+              type="button"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

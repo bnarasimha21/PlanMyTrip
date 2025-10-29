@@ -123,6 +123,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     console.log('🔄 AuthContext logout called');
+    console.log('Current user before logout:', user);
+    
     setUser(null);
     localStorage.removeItem('user');
     localStorage.removeItem('subscription_plan');
@@ -140,6 +142,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } else {
       console.log('ℹ️ Google OAuth not available for sign-out');
     }
+    
+    console.log('✅ AuthContext logout completed');
   };
 
   const value: AuthContextType = {

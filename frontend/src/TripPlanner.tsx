@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useSubscription } from './SubscriptionContext';
 import UserProfile from './UserProfile';
+import SubscriptionStatus from './SubscriptionStatus';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 // @ts-ignore annyang has imperfect types
@@ -1342,7 +1343,7 @@ export default function TripPlanner() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-sky-100 text-slate-800">
       {/* Header */}
-      <div className="bg-white/90 backdrop-blur-md border-b border-blue-200 shadow-lg">
+      <div className="bg-white/90 backdrop-blur-md border-b border-blue-200 shadow-lg relative z-50">
         <div className="px-6 py-6 flex items-center justify-between">
           <div>
             <Link to="/" className="inline-block group">
@@ -1352,7 +1353,8 @@ export default function TripPlanner() {
             </Link>
             <p className="text-sm text-slate-600 mt-1">AI-powered travel planning with interactive maps</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 relative z-50">
+            <SubscriptionStatus />
             <UserProfile />
           </div>
         </div>
@@ -1362,36 +1364,6 @@ export default function TripPlanner() {
               {/* Sidebar */}
               <div className="w-[520px] bg-white/95 backdrop-blur-xl border-r border-blue-200 overflow-hidden flex flex-col shadow-lg">
           <div className="p-6 space-y-6 flex-shrink-0">
-            {/* Subscription Status */}
-            {usage && limits && (
-              <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl p-4 border border-blue-200">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-semibold text-slate-700">Subscription Status</h4>
-                  <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                    subscriptionPlan === 'premium' 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-blue-100 text-blue-700'
-                  }`}>
-                    {subscriptionPlan === 'premium' ? '⭐ Premium' : '🆓 Freemium'}
-                  </span>
-                </div>
-                <div className="text-xs text-slate-600">
-                  {limits.max_trips_per_month === -1 ? (
-                    <span className="text-green-600">Unlimited trips this month</span>
-                  ) : (
-                    <span>
-                      {usage.trips_used} / {limits.max_trips_per_month} trips used this month
-                    </span>
-                  )}
-                </div>
-                {limits.max_days_per_trip && (
-                  <div className="text-xs text-slate-600 mt-1">
-                    Max {limits.max_days_per_trip} day{limits.max_days_per_trip !== 1 ? 's' : ''} per trip
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Trip Request Section with Voice Input */}
             <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl border border-blue-200 shadow-lg">
               <button

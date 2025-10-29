@@ -6,6 +6,7 @@ import GoogleLogin from './GoogleLogin';
 import UserProfile from './UserProfile';
 import SetupGuide from './SetupGuide';
 import PaymentModal from './PaymentModal';
+import SubscriptionStatus from './SubscriptionStatus';
 
 const HomePage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -53,7 +54,7 @@ const HomePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-sky-100 text-slate-800 overflow-x-hidden">
       {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-blue-200 shadow-sm">
+      <nav className="bg-white/80 backdrop-blur-md border-b border-blue-200 shadow-sm relative z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
@@ -61,16 +62,21 @@ const HomePage: React.FC = () => {
                 ✈️ TripXplorer
               </h1>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 relative z-50">
               {isLoading ? (
                 <div className="w-8 h-8 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-              ) : isAuthenticated ? (
-                <UserProfile />
               ) : (
-                <GoogleLogin 
-                  className="w-48"
-                  onSuccess={() => console.log('Login successful')}
-                />
+                <>
+                  <SubscriptionStatus />
+                  {isAuthenticated ? (
+                    <UserProfile />
+                  ) : (
+                    <GoogleLogin 
+                      className="w-48"
+                      onSuccess={() => console.log('Login successful')}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>

@@ -150,11 +150,13 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   };
 
   const clearSubscription = () => {
+    console.log('🔄 SubscriptionContext clearSubscription called');
     setSubscriptionPlan(null);
     setIsSubscribed(false);
     setUsage(null);
     setLimits(null);
     localStorage.removeItem('subscription_plan');
+    console.log('✅ SubscriptionContext cleared');
   };
 
   const value = {
