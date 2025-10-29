@@ -11,7 +11,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import annyang from 'annyang';
 import ReactMarkdown from 'react-markdown';
 
-const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000';
+const API_BASE = (import.meta as any).env.VITE_API_BASE || window.location.origin;
 const MAPBOX_TOKEN = (import.meta as any).env.VITE_MAPBOX_TOKEN || '';
 
 if (!MAPBOX_TOKEN) {

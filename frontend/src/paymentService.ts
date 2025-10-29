@@ -1,6 +1,6 @@
 // Payment service for Razorpay integration
 const RAZORPAY_KEY_ID = 'rzp_test_RWZv6Fqh8F4Pdy';
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = (import.meta as any).env.VITE_API_BASE || window.location.origin;
 
 export interface CreateOrderRequest {
   amount: number;

@@ -25,7 +25,7 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000';
+  const API_BASE = (import.meta as any).env.VITE_API_BASE || window.location.origin;
 
   useEffect(() => {
     const fetchStats = async () => {
