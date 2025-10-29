@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000';
+const API_BASE = (import.meta as any).env.VITE_API_BASE || window.location.origin;
 import { useAuth } from './AuthContext';
 
 interface UserProfileProps {

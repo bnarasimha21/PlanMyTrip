@@ -15,7 +15,7 @@ const Settings: React.FC = () => {
     setLocalSubscriptionPlan(subscriptionPlan);
   }, [subscriptionPlan]);
 
-  const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000';
+  const API_BASE = (import.meta as any).env.VITE_API_BASE || window.location.origin;
 
   const updateSubscription = async (newPlan: string) => {
     if (!user) return;

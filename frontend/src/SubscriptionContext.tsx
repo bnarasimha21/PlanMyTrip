@@ -44,7 +44,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   const [usage, setUsage] = useState<UsageInfo | null>(null);
   const [limits, setLimits] = useState<SubscriptionLimits | null>(null);
 
-  const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000';
+  const API_BASE = (import.meta as any).env.VITE_API_BASE || window.location.origin;
   
   // Get the current user ID, fallback to 'default' if no user is logged in
   const getCurrentUserId = () => {

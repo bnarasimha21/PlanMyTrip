@@ -77,7 +77,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const createOrUpdateUser = async (userData: User) => {
-    const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000';
+    const API_BASE = (import.meta as any).env.VITE_API_BASE || window.location.origin;
     
     try {
       // First, try to get the user to see if they exist
