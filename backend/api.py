@@ -34,6 +34,165 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Admin stats endpoint
+@app.get("/admin/stats")
+def admin_stats() -> Dict[str, Any]:
+    """Return aggregate stats for admin dashboard"""
+    try:
+        with db_manager.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Total users
+            cursor.execute("SELECT COUNT(*) FROM users")
+            total_users = cursor.fetchone()[0]
+
+            # Admin users
+            try:
+                cursor.execute("SELECT COUNT(*) FROM users WHERE IsAdmin = 1")
+                admin_users = cursor.fetchone()[0]
+            except Exception:
+                admin_users = 0
+
+            # Total trips
+            cursor.execute("SELECT COUNT(*) FROM trip_history")
+            total_trips = cursor.fetchone()[0]
+
+            # Trips this month
+            cursor.execute("SELECT COUNT(*) FROM trip_history WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')")
+            monthly_trips = cursor.fetchone()[0]
+
+            # Subscription breakdown
+            cursor.execute("SELECT plan, COUNT(*) FROM subscriptions WHERE status='active' GROUP BY plan")
+            subs = {row[0]: row[1] for row in cursor.fetchall()}
+
+            # Top 10 freemium users by total trips
+            cursor.execute(
+                """
+                SELECT u.name, u.email, u.user_id, COUNT(t.id) as trips
+                FROM users u
+                JOIN subscriptions s ON s.user_id = u.user_id AND s.status='active'
+                LEFT JOIN trip_history t ON t.user_id = u.user_id
+                WHERE s.plan = 'freemium'
+                GROUP BY u.user_id
+                ORDER BY trips DESC
+                LIMIT 10
+                """
+            )
+            top_freemium = [
+                {"name": r[0] or "-", "email": r[1] or "-", "user_id": r[2], "trips": r[3] or 0}
+                for r in cursor.fetchall()
+            ]
+
+            # Top 10 premium users by total trips
+            cursor.execute(
+                """
+                SELECT u.name, u.email, u.user_id, COUNT(t.id) as trips
+                FROM users u
+                JOIN subscriptions s ON s.user_id = u.user_id AND s.status='active'
+                LEFT JOIN trip_history t ON t.user_id = u.user_id
+                WHERE s.plan = 'premium'
+                GROUP BY u.user_id
+                ORDER BY trips DESC
+                LIMIT 10
+                """
+            )
+            top_premium = [
+                {"name": r[0] or "-", "email": r[1] or "-", "user_id": r[2], "trips": r[3] or 0}
+                for r in cursor.fetchall()
+            ]
+
+            # Recent activity: last 10 trips
+            cursor.execute(
+                """
+                SELECT t.id, t.user_id, u.name, u.email, t.city, t.created_at
+                FROM trip_history t
+                LEFT JOIN users u ON u.user_id = t.user_id
+                ORDER BY t.created_at DESC
+                LIMIT 10
+                """
+            )
+            recent_trips = [
+                {
+                    "id": r[0],
+                    "user_id": r[1],
+                    "name": r[2] or "-",
+                    "email": r[3] or "-",
+                    "city": r[4] or "-",
+                    "created_at": r[5]
+                }
+                for r in cursor.fetchall()
+            ]
+
+            # Power users this month (top 10)
+            cursor.execute(
+                """
+                SELECT u.name, u.email, u.user_id, COUNT(t.id) as trips
+                FROM users u
+                LEFT JOIN trip_history t ON t.user_id = u.user_id
+                WHERE strftime('%Y-%m', t.created_at) = strftime('%Y-%m', 'now')
+                GROUP BY u.user_id
+                ORDER BY trips DESC
+                LIMIT 10
+                """
+            )
+            power_users_month = [
+                {"name": r[0] or "-", "email": r[1] or "-", "user_id": r[2], "trips": r[3] or 0}
+                for r in cursor.fetchall()
+            ]
+
+            # Top cities this month (top 10)
+            cursor.execute(
+                """
+                SELECT city, COUNT(*) as trips
+                FROM trip_history
+                WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') AND city IS NOT NULL AND city <> ''
+                GROUP BY city
+                ORDER BY trips DESC
+                LIMIT 10
+                """
+            )
+            top_cities_month = [
+                {"city": r[0], "trips": r[1]}
+                for r in cursor.fetchall()
+            ]
+
+            # Trips per day for last 14 days
+            cursor.execute(
+                """
+                SELECT strftime('%Y-%m-%d', created_at) as d, COUNT(*) as count
+                FROM trip_history
+                WHERE date(created_at) >= date('now', '-13 days')
+                GROUP BY d
+                ORDER BY d ASC
+                """
+            )
+            trips_per_day_rows = cursor.fetchall()
+            trips_per_day = {row[0]: row[1] for row in trips_per_day_rows}
+
+            return {
+                "success": True,
+                "stats": {
+                    "total_users": total_users,
+                    "admin_users": admin_users,
+                    "total_trips": total_trips,
+                    "monthly_trips": monthly_trips,
+                    "subscriptions": {
+                        "freemium": subs.get("freemium", 0),
+                        "premium": subs.get("premium", 0)
+                    },
+                    "top_users": {
+                        "freemium": top_freemium,
+                        "premium": top_premium
+                    },
+                    "recent_trips": recent_trips,
+                    "power_users_month": power_users_month,
+                    "top_cities_month": top_cities_month,
+                    "trips_per_day_14": trips_per_day
+                }
+            }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 
 # Subscription plan limits
 SUBSCRIPTION_LIMITS = {
