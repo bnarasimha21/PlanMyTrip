@@ -7,8 +7,6 @@ import SubscriptionStatus from './SubscriptionStatus';
 import GoogleLogin from './GoogleLogin';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-// @ts-ignore annyang has imperfect types
-import annyang from 'annyang';
 import ReactMarkdown from 'react-markdown';
 
 const API_BASE = (import.meta as any).env.VITE_API_BASE || window.location.origin;
@@ -70,14 +68,14 @@ export default function TripPlanner() {
   const [extracted, setExtracted] = useState<{ city: string; interests: string; days: number } | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [status, setStatus] = useState('');
-  const [isListening, setIsListening] = useState(false);
+  
   const [modifyInput, setModifyInput] = useState('');
   const [isExtractedCollapsed, setIsExtractedCollapsed] = useState(true);
   const [isTripRequestCollapsed, setIsTripRequestCollapsed] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'bot', message: string, timestamp: Date}>>([]);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   const [chatInput, setChatInput] = useState('');
-  const [isChatListening, setIsChatListening] = useState(false);
+  
   const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
   const [hasGeneratedItinerary, setHasGeneratedItinerary] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -90,12 +88,11 @@ export default function TripPlanner() {
   const animationIdRef = useRef<number | null>(null);
   const [isNarrationEnabled, setIsNarrationEnabled] = useState(true);
   const narratedPlacesRef = useRef<Set<string>>(new Set());
-  const speechRecognitionRef = useRef<any>(null); // Store reference to current speech recognition
+  
   const chatInputRef = useRef<HTMLInputElement | null>(null); // Reference to chat input for focusing
   const [isDayMode, setIsDayMode] = useState(false); // false = night mode (default)
   const [isTTSEnabled, setIsTTSEnabled] = useState(false); // Text-to-speech for chatbot responses
-  const [isContinuousListening, setIsContinuousListening] = useState(false); // Continuous listening mode
-  const continuousListeningRef = useRef(false); // Ref to track continuous listening mode
+  
 
   // Add CSS for better map readability and voice animations
   useEffect(() => {
@@ -115,13 +112,6 @@ export default function TripPlanner() {
       .mapboxgl-ctrl-group {
         box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
         border-radius: 8px !important;
-      }
-
-      /* Voice Animation Keyframes */
-      @keyframes voiceBar {
-        0% { height: 20px; }
-        50% { height: 60px; }
-        100% { height: 20px; }
       }
 
       @keyframes processingDots {
@@ -999,33 +989,7 @@ export default function TripPlanner() {
     }
   }, [chatMessages]);
 
-  // Mic integration
-  const startListening = () => {
-    if (!annyang) return setStatus('Speech not supported');
-    setIsListening(true);
-    setStatus('Listening...');
-    annyang.setLanguage('en-US');
-    annyang.removeCommands();
-    // Clear any existing callbacks to prevent conflicts
-    annyang.removeCallback('result');
-    annyang.removeCallback('end');
-    annyang.addCallback('result', (phrases: string[]) => {
-      if (phrases && phrases.length) {
-        setTripRequest(phrases[0]);
-        setStatus('');
-        setIsListening(false);
-        try { annyang.abort(); } catch {}
-      }
-    });
-    annyang.addCallback('end', () => {
-      setStatus('');
-      setIsListening(false);
-    });
-    try { annyang.start({ autoRestart: false, continuous: false }); } catch { 
-      setStatus('Mic error');
-      setIsListening(false);
-    }
-  };
+  // Voice input removed
 
   const doExtract = async () => {
     setStatus('Extracting details...');
@@ -1133,109 +1097,7 @@ export default function TripPlanner() {
     }
   };
 
-  const startChatListening = () => {
-    if (!annyang) return setStatus('Speech not supported');
-    console.log('🎤 Starting chat listening, continuous mode:', isContinuousListening);
-    setIsChatListening(true);
-    setStatus('Listening...');
-    annyang.setLanguage('en-US');
-    annyang.removeCommands();
-    // Clear any existing callbacks to prevent conflicts
-    annyang.removeCallback('result');
-    annyang.removeCallback('end');
-    annyang.addCallback('result', (phrases: string[]) => {
-      if (phrases && phrases.length) {
-        const command = phrases[0];
-        setStatus('Transcribed: ' + command);
-        // In continuous mode, keep listening indefinitely
-        // Only stop listening if not in continuous mode
-        if (!continuousListeningRef.current) {
-          setIsChatListening(false);
-        }
-        try { annyang.abort(); } catch {}
-
-        // Auto-submit after a brief delay to show transcription
-        setTimeout(async () => {
-          if (command.trim() && extracted && !isAutoSubmitting) {
-            console.log('🚀 Auto-submitting voice input:', command);
-            setIsAutoSubmitting(true);
-
-            // Create user message
-            const userMessage = { type: 'user' as const, message: command, timestamp: new Date() };
-            setChatMessages(prev => [...prev, userMessage]);
-
-            // Set processing status
-            setStatus('Processing...');
-
-            try {
-              // Send to backend
-              const resp = await fetch(`${API_BASE}/modify`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  city: extracted.city,
-                  interests: extracted.interests,
-                  days: extracted.days,
-                  places,
-                  instruction: command,
-                  original_request: tripRequest,
-                  chat_history: chatMessages.map(msg => ({
-                    type: msg.type,
-                    message: msg.message,
-                    timestamp: msg.timestamp.toISOString()
-                  }))
-                }),
-              });
-              const data = await resp.json();
-
-              if (data.type === 'modification') {
-                setPlaces(data.places || []);
-              }
-
-              const botMessage = {
-                type: 'bot' as const,
-                message: data.response || "I've processed your request.",
-                timestamp: new Date()
-              };
-              setChatMessages(prev => [...prev, botMessage]);
-
-              if (isTTSEnabled) {
-                speakText(botMessage.message);
-              }
-              setStatus('');
-              
-              // Manage listening state after response
-              if (continuousListeningRef.current) {
-                console.log('🔄 Continuous listening enabled, restarting immediately');
-                // Restart listening immediately without delays
-                setTimeout(() => {
-                  startChatListening();
-                }, 100);
-              } else {
-                console.log('🔄 Continuous listening disabled, stopping listening');
-                setIsChatListening(false);
-              }
-            } catch (error) {
-              const errorMessage = {
-                type: 'bot' as const,
-                message: 'Sorry, I encountered an error while processing your request.',
-                timestamp: new Date()
-              };
-              setChatMessages(prev => [...prev, errorMessage]);
-              setStatus('Error processing request');
-            } finally {
-              setIsAutoSubmitting(false);
-            }
-          }
-        }, 1000);
-      }
-    });
-    annyang.addCallback('end', () => {
-      setIsChatListening(false);
-      setStatus('');
-    });
-    try { annyang.start({ autoRestart: false, continuous: false }); } catch { setStatus('Mic error'); setIsChatListening(false); }
-  };
+  // Voice input removed
 
   const sendChatMessage = async () => {
     if (!chatInput.trim() || !extracted || isAutoSubmitting) return;
@@ -1421,7 +1283,7 @@ export default function TripPlanner() {
               {/* Sidebar */}
               <div className="w-[520px] bg-white/95 backdrop-blur-xl border-r border-blue-200 overflow-hidden flex flex-col shadow-lg">
           <div className="p-6 space-y-6 flex-shrink-0">
-            {/* Trip Request Section with Voice Input */}
+            {/* Trip Request Section */}
             <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl border border-blue-200 shadow-lg">
               <button
                 onClick={() => setIsTripRequestCollapsed(!isTripRequestCollapsed)}
@@ -1433,23 +1295,7 @@ export default function TripPlanner() {
                     Trip Request
                   </h3>
                   <div className="flex items-center gap-2">
-                    {!isTripRequestCollapsed && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startListening();
-                        }}
-                        disabled={isListening}
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                          isListening
-                            ? 'bg-red-500 hover:bg-red-600 animate-pulse text-white'
-                            : 'bg-blue-500 hover:bg-blue-600 text-white hover:scale-110'
-                        } disabled:opacity-50`}
-                        title={isListening ? 'Listening...' : 'Start Speaking'}
-                      >
-                        🎤
-                      </button>
-                    )}
+                    
                     <span className={`transform transition-transform duration-200 text-slate-600`}>
                       {isTripRequestCollapsed ? '▼' : '▲'}
                     </span>
@@ -1671,45 +1517,7 @@ export default function TripPlanner() {
 
                   {/* Chat Input - Fixed at Bottom */}
                   <div className="p-6 pt-4 flex-shrink-0">
-                    {/* Small Listening Indicator - Above text input */}
-                    {isChatListening && (
-                      <div className="mb-4 flex justify-end">
-                        <div className="bg-gradient-to-r from-blue-600 to-sky-600 rounded-full p-3 shadow-lg border border-white/20 backdrop-blur-sm">
-                          <div className="flex items-center space-x-3">
-                            {/* Animated microphone icon */}
-                            <div className="relative">
-                              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
-                                <span className="text-white text-lg">🎤</span>
-                              </div>
-                              {/* Pulsing ring */}
-                              <div className="absolute inset-0 w-8 h-8 rounded-full border-2 border-white/40 animate-ping"></div>
-                            </div>
-                            
-                            {/* Status text */}
-                            <div className="text-white text-sm font-medium">
-                              Listening...
-                            </div>
-                            
-                            {/* Stop button */}
-                            <button
-                              onClick={() => {
-                                try {
-                                  if (annyang) annyang.abort();
-                                } catch {}
-                                setIsChatListening(false);
-                                setIsContinuousListening(false);
-                                continuousListeningRef.current = false;
-                                setStatus('');
-                              }}
-                              className="w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white text-xs transition-colors duration-200"
-                              title="Stop listening"
-                            >
-                              ⏹️
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    
 
                     <div className="space-y-4">
                       {/* Full Width Input */}
@@ -1757,37 +1565,7 @@ export default function TripPlanner() {
 
                         {/* Buttons - Right Side */}
                         <div className="flex gap-3 items-center">
-                          {/* Voice Button - Hidden when listening or processing */}
-                          {!isChatListening && !status.includes('Processing') && (
-                          <button
-                            onClick={() => {
-                              if (isChatListening) {
-                                console.log('🛑 Stopping continuous listening');
-                                try { if (annyang) annyang.abort(); } catch {}
-                                setIsChatListening(false);
-                                setIsContinuousListening(false);
-                                continuousListeningRef.current = false;
-                                setStatus('');
-                              } else {
-                                console.log('🔄 Starting continuous listening mode');
-                                setIsContinuousListening(true);
-                                continuousListeningRef.current = true;
-                                startChatListening();
-                              }
-                            }}
-                            className={`px-4 py-3 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg ${
-                              isChatListening
-                                ? 'bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white animate-pulse'
-                                : isContinuousListening
-                                ? 'bg-gradient-to-r from-blue-500 to-sky-500 hover:from-blue-600 hover:to-sky-600 text-white'
-                                : 'bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white'
-                            }`}
-                            title={isChatListening ? 'Click to stop listening' : isContinuousListening ? 'Continuous listening enabled' : 'Use voice to ask'}
-                            aria-label={isChatListening ? 'Stop voice input' : 'Start voice input'}
-                          >
-                            🎤 Ask Trippy
-                          </button>
-                          )}
+                          
 
                           {/* Send Button */}
                           <button
