@@ -1190,18 +1190,7 @@ export default function TripPlanner() {
       }
 
       setStatus('Error processing request');
-      
-      // Manage listening state after error response
-      if (continuousListeningRef.current) {
-        console.log('🔄 Continuous listening enabled, restarting after error');
-        // Restart listening immediately without delays
-        setTimeout(() => {
-          startChatListening();
-        }, 100);
-      } else {
-        console.log('🔄 Continuous listening disabled, stopping listening (error)');
-        setIsChatListening(false);
-      }
+
     }
   };
 
