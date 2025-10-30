@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,40 @@ export default function TripPlannerScreen() {
   const insets = useSafeAreaInsets();
   const [tripRequest, setTripRequest] = useState('Plan a 2-day art trip to Paris');
   const mapRef = useRef(null);
+  const [userCoordinate, setUserCoordinate] = useState<number[] | null>(null);
+  const cameraRef = useRef<any>(null);
+  const hasCenteredRef = useRef(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const granted = await MapboxGL.locationManager.requestWhenInUsePermissions();
+        if (!granted) return;
+        await MapboxGL.locationManager.start();
+        const loc = await MapboxGL.locationManager.getLastKnownLocation();
+        if (mounted && loc && loc.coords) {
+          const { latitude, longitude } = loc.coords as any;
+          if (typeof latitude === 'number' && typeof longitude === 'number') {
+            const coord = [longitude, latitude] as number[];
+            setUserCoordinate(coord);
+            if (cameraRef.current && !hasCenteredRef.current) {
+              hasCenteredRef.current = true;
+              cameraRef.current.setCamera({
+                centerCoordinate: coord,
+                zoomLevel: 13,
+                animationDuration: 0,
+              });
+            }
+          }
+        }
+      } catch {}
+    })();
+    return () => {
+      mounted = false;
+      try { MapboxGL.locationManager.stop(); } catch {}
+    };
+  }, []);
 
   return (
     <SafeAreaView style={styles.wrapper}>
@@ -36,9 +70,12 @@ export default function TripPlannerScreen() {
               style={styles.map}
               styleURL={MapboxGL.StyleURL.Street}
             >
+              {userCoordinate ? (
+                <MapboxGL.PointAnnotation id="user-point" coordinate={userCoordinate} />
+              ) : null}
               <MapboxGL.Camera
-                zoomLevel={2.6}
-                centerCoordinate={[78.9629, 20.5937]} // Center: India, default
+                ref={cameraRef}
+                defaultSettings={{ centerCoordinate: [78.9629, 20.5937], zoomLevel: 2.6 }}
               />
             </MapboxGL.MapView>
           </View>
