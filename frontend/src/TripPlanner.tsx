@@ -65,7 +65,7 @@ export default function TripPlanner() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { subscriptionPlan, usage, limits, checkUsage, refreshUsage } = useSubscription();
   const [tripRequest, setTripRequest] = useState('Plan a 1-day must see places in Hanoi');
-  const [extracted, setExtracted] = useState<{ city: string; interests: string; days: number } | null>(null);
+  const [extracted, setExtracted] = useState<{ city: string; interests: string; days: number; destination?: string; destination_type?: string } | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [status, setStatus] = useState('');
   
@@ -1000,7 +1000,14 @@ export default function TripPlanner() {
         body: JSON.stringify({ text: tripRequest }),
       });
       const data = await resp.json();
-      setExtracted(data);
+      const normalized = {
+        city: data.destination || data.city,
+        interests: data.interests,
+        days: data.days,
+        destination: data.destination || data.city,
+        destination_type: data.destination_type || 'city'
+      };
+      setExtracted(normalized);
       setIsExtractedCollapsed(false);
       setStatus('');
     } catch (error) {
@@ -1040,7 +1047,9 @@ export default function TripPlanner() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          city: req.city, 
+          destination: req.destination || req.city,
+          destination_type: req.destination_type || 'city',
+          city: req.city,
           interests: req.interests, 
           days: req.days,
           user_id: user?.id || 'default',
@@ -1119,6 +1128,8 @@ export default function TripPlanner() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
+          destination: (extracted as any).destination || extracted.city,
+          destination_type: (extracted as any).destination_type || 'city',
           city: extracted.city, 
           interests: extracted.interests, 
           days: extracted.days, 
