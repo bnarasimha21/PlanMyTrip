@@ -13,47 +13,56 @@ class ItineraryAgent(BaseAgent):
 
     def geocode_places(self, places: List[dict], city: str) -> List[dict]:
         """Add geocoding to places that don't have coordinates"""
+        clean_places = []
         for place in places:
-            if place.get("latitude") is not None and place.get("longitude") is not None:
+            if not isinstance(place, dict):
                 continue
-
+            if place.get("latitude") is not None and place.get("longitude") is not None:
+                clean_places.append(place)
+                continue
             place_name = place.get("name")
             address = place.get("address")
-
             coords = geocode_place_tool(place_name, address, city)
             place["latitude"] = coords["latitude"]
             place["longitude"] = coords["longitude"]
-
-        return places
+            clean_places.append(place)
+        return clean_places
 
     def generate_itinerary(self, city: str, interests: str, days: int, search_context: str = "") -> dict:
         """Generate initial itinerary using search results"""
 
-        prompt = f"""Create a {days}-day travel itinerary for {city} focusing on {interests}.
+        prompt = f"""
+                    Create a {days}-day travel itinerary for destination "{city}" focusing on: {interests}.
 
-        {search_context}
-        Use the search results above as a reference for current, popular places to include in the itinerary. 
-        Prioritize places with good ratings and detailed information.
+                    INPUT CONTEXT (Search results for destination "{city}"):
+                    {search_context}
 
-        Return ONLY a valid JSON object with this structure:
-        {{"places":[{{"name":"Name","neighborhood":"Area","category":"food/art/culture/shopping/sightseeing","address":"Address","latitude":null,"longitude":null,"notes":"Brief note"}}]}}
+                    STRICT OUTPUT FORMAT:
+                    Return ONLY a valid JSON object:
+                    {{"places":[{{"name":"Name","neighborhood":"Area","category":"food|art|culture|shopping|sightseeing","address":"Address","latitude":null,"longitude":null,"notes":"Brief note"}}]]}}
 
-        CRITICAL LOCATION REQUIREMENT:
-        - ALL places MUST be located specifically in {city}
-        - DO NOT include places from other cities
-        - Verify each place is actually in {city} before including it
-        - If unsure about location, do not include the place
+                    HARD LOCATION CONSTRAINTS (MANDATORY):
+                    - Every place MUST be inside the administrative boundary of "{city}" only (if this destination is a city).
+                    - DO NOT include places from any other city, province, island, or country.
+                    - Do not include similarly named places from other locations.
+                    - If a place appears in search results but is outside "{city}", EXCLUDE it.
+                    - If location cannot be verified from the context, EXCLUDE it.
 
-        Requirements:
-        - Include {max(5, days * 2)} diverse places that match the interests
-        - Prioritize places from the search results when they match the interests
-        - Mix of popular attractions and local gems
-        - Include specific addresses where possible
-        - Categorize each place appropriately (food, art, culture, shopping, sightseeing)
-        - Provide helpful notes for each place
-        - Focus on places that are currently open and accessible
-        - Real places only, NO markdown formatting, just pure JSON
-        - ONLY places located in {city}"""
+                    VERIFICATION CHECK (BEFORE OUTPUT):
+                    For each place:
+                    - Confirm the address explicitly contains "{city}" (and correct sub-localities if applicable) when applicable.
+                    - If ambiguous, search context must clearly tie it to the destination. Otherwise, exclude.
+
+                    SELECTION RULES:
+                    - Include {max(5, days * 2)} diverse, real, currently open/accessible places aligned with the interests.
+                    - Prioritize items from INPUT CONTEXT that explicitly mention the destination in their address/metadata.
+                    - Mix must-see and local gems.
+                    - Provide specific addresses (street + locality + city) when destination is a city.
+                    - Properly categorize each place.
+
+                    OUTPUT:
+                    - Only pure JSON. No markdown, no comments, no trailing commas.
+                    """
 
         # Create structured chain
         chain = self.create_structured_chain(
@@ -66,7 +75,12 @@ class ItineraryAgent(BaseAgent):
                 chain,
                 prompt,
                 ItineraryResponse,
-                "You are a travel expert. Return only valid JSON with real, current places."
+                """
+                You are a meticulous travel expert. You must ONLY return valid JSON. 
+                You MUST exclude any place not verifiably located inside the target city. 
+                If you cannot find enough valid places in the city, return fewer places rather than guessing. 
+                Do NOT include similarly named places in other regions.
+                """
             )
 
             places = result.get('places', [])
@@ -96,99 +110,135 @@ class ItineraryAgent(BaseAgent):
                 "raw_research_text": None
             }
 
+    def _should_use_search(self, modification_request: str, existing_places: list) -> bool:
+        """Heuristic to decide if modification needs search."""
+        q = (modification_request or "").lower()
+        # If modification references existing place, and is just remove/replace/add known place, do not search
+        try:
+            place_names = [p.get('name', '') for p in existing_places or [] if isinstance(p, dict)]
+            for name in place_names:
+                if name and name.lower() in q:
+                    return False
+        except Exception:
+            pass
+        search_keywords = [
+            'add', 'new', 'local gem', 'what else', 'find', 'suggest', 'recommend', 'famous', 'must see', 'top', 'hidden',
+            'tickets', 'opening', 'price', 'cost', 'address', 'current', 'latest', 'up to date', 'good', 'best', 'nice', 'restaurant', 'hotel', 'book', 'booking', 'reservation'
+        ]
+        if any(k in q for k in search_keywords):
+            return True
+        return False
+
     def modify_itinerary(self, city: str, interests: str, days: int,
                         existing_places: List[dict], modification_request: str,
                         search_context: str = "", original_request: str = "", chat_history: List[dict] = []) -> dict:
-        """Modify existing itinerary based on user request"""
-
-        prompt = f"""
-        Here is the original request of user planning for a trip: {original_request}
-
-        Here is the Itinerary suggested by us for the trip: {existing_places}
-
-        Here is the chat history of the conversation between user and us: {chat_history}
-
-        Based on users request, make necessary modification to the itinerary 
-        based on the chat history and the original request.
-
-        Here is the user query: {modification_request}
-
-        1. If user is asking to add a new place to itinerary:        
-
-            ADD/INCLUDE OPERATIONS:
-                - You MUST keep itinerary intact and add the new one(s) to it.
-                - Example: If current itinerary has [A, B, C] and user says "add D", result should be [A, B, C, D]
-                - Do not remove any existing places from the itinerary.
-                - Do not replace any existing places with the new one(s).
-                - Do not change the order of the existing places.
-                - Do not replace any existing places with the new one(s).
-
-                CRITICAL LOCATION REQUIREMENT:
-                - ALL places (new or existing) MUST be located specifically in {city}
-                - DO NOT include places from other cities (including Ho Chi Minh City, Bangkok, etc.)
-                - Verify each place is actually in {city} before including it
-
-        2. If user is asking to remove a place from itinerary:
-            REMOVE/DELETE OPERATIONS:
-                - Only remove places when explicitly told to "remove", "delete", "take out"
-                - Keep all other existing places    
-
-
-        3. If user is asking to replace a place in itinerary:
-            REPLACE OPERATIONS:
-                - Only replace when explicitly told to "replace X with Y"
-
-        EXAMPLES:
-        - "Add UB City to the list" -> Keep ALL existing places + add UB City
-        - "Include Central Mall" -> Keep ALL existing places + add Central Mall
-        - "Remove Place A" -> Keep all places except Place A
-        - "Replace Place A with Place B" -> Keep all places but change Place A to Place B                
-
-        
-        Return ONLY a JSON object with this structure:
-        {{
-        "type": "modification",
-        "response": "Description of what changes were made",
-        "places": [
-            {{
-            "name": "Place Name",
-            "neighborhood": "Area Name",
-            "category": "Food/Art/Culture/Shopping/Sightseeing",
-            "address": "Full Address",
-            "latitude": <latitude of the place>,
-            "longitude": <longitude of the place>,
-            "notes": "Brief description"
-            }}
-        ]
-        }}
-        """
-
-
-        # Create structured chain
-        chain = self.create_structured_chain(
-            "You are a travel assistant. Return valid JSON for itinerary modifications.",
-            ModificationResponse
+        """Modify existing itinerary based on user request, preserving context and performing search only if required."""
+        # Build system instructions
+        system_message = (
+            f"You are PlanMyTrip, a helpful travel assistant. "
+            f"All modifications should keep the itinerary consistent, answer in context, and "
+            f'ONLY include places in {city}. '
+            f"When adding or suggesting places, they MUST actually be in {city}, not from any other city or country. "
+            f"Use ONLY modifications that make sense given the original request, user interests, current itinerary, and chat history. "
+            f"If the user refers to an unnamed place by description or position or 'this/that/it', infer based on current itinerary. "
+            f"Don't duplicate or remove places unless the user asks. Describe your action clearly."
         )
+        # Prepare itinerary context
+        itinerary_summaries = []
+        for place in existing_places[:10]:
+            if not isinstance(place, dict):
+                continue
+            name = place.get('name') or 'Unknown'
+            category = place.get('category') or ''
+            neighborhood = place.get('neighborhood') or ''
+            notes = (place.get('notes') or '')[:60]
+            address = (place.get('address') or '')
+            summary = f"- {name} ({category}) {neighborhood}, {address}. {notes}"
+            itinerary_summaries.append(summary)
+        itinerary_block = '\n'.join(itinerary_summaries) or '(none)'
 
+        # Prepare message list
+        messages = [("system", system_message)]
+        # Replay succinct recent chat history
+        if chat_history and isinstance(chat_history, list):
+            for msg in chat_history[-6:]:
+                role = (msg.get('type') or '').lower()
+                content = msg.get('message') or ''
+                if not content:
+                    continue
+                if role == 'user':
+                    messages.append(("user", content))
+                elif role == 'bot':
+                    messages.append(("assistant", content))
+        messages.append(("user", f"Context: City: {city}, Interests: {interests}, Days: {days}\n"
+                                   f"Current Itinerary (up to 10):\n{itinerary_block}\n"
+                                   f"Original trip request: {original_request}\n"
+                                   f"User's new modification request: {modification_request}"))
+
+        import json as _json
+        from langchain_core.messages import SystemMessage, HumanMessage
+        use_search = self._should_use_search(modification_request, existing_places)
+        print(f"[ITINERARY MODIFY] Use search tools: {use_search}")
         try:
-            result = self.execute_with_fallback(
-                chain,
-                prompt,
-                ModificationResponse,
-                "You are a travel assistant. Return only valid JSON for itinerary modifications."
-            )
-
-            updated_places = result.get('places', existing_places or [])
-            print(f"Updated places: {updated_places}")
-            response_text = result.get('response', 'I\'ve processed your modification request.')
-
-            # Convert to dict format if they're Pydantic models
-            if updated_places and hasattr(updated_places[0], 'model_dump'):
-                updated_places = [p.model_dump() for p in updated_places]
-
-            # Geocode new places
+            if not use_search:
+                # Use LLM only, no search/tools
+                llm_msgs = [SystemMessage(content=system_message)]
+                if chat_history and isinstance(chat_history, list):
+                    for msg in chat_history[-6:]:
+                        role = (msg.get('type') or '').lower()
+                        content = msg.get('message') or ''
+                        if not content:
+                            continue
+                        if role == 'user':
+                            llm_msgs.append(HumanMessage(content=content))
+                        elif role == 'bot':
+                            llm_msgs.append(SystemMessage(content=f"Assistant previously said: {content}"))
+                llm_msgs.append(HumanMessage(content=messages[-1][1]))
+                # Ask for only the required JSON structure
+                llm_msgs.append(HumanMessage(content='Return only a valid JSON for the modified itinerary, nothing else.'))
+                llm_result = self.llm.invoke(llm_msgs)
+                resp_text = getattr(llm_result, 'content', None) or ''
+                print(f"[ITINERARY MODIFY] LLM response: {resp_text[:140]}")
+                try:
+                    mod_json = _json.loads(resp_text)
+                    updated_places = mod_json.get('places', existing_places or [])
+                    response_text = mod_json.get('response', 'I have updated your itinerary as requested.')
+                except Exception as inner_e:
+                    print(f"[ITINERARY MODIFY] LLM parse error, falling back to chain+tools: {inner_e}")
+                    use_search = True
+            if use_search:
+                # Use chain with proper structure and activate tools/search
+                prompt = '\n'.join([
+                    system_message,
+                    f'City: {city}',
+                    f'Interests: {interests}',
+                    f'Days: {days}',
+                    f'Current itinerary (as JSON): {existing_places}',
+                    f'Original trip request: {original_request}',
+                    f'Recent chat history: {chat_history}',
+                    f'User modification request: {modification_request}',
+                    f"Be sure all added places are in {city} and output strictly matches the required modification JSON schema!"
+                ])
+                chain = self.create_structured_chain(
+                    system_message,
+                    ModificationResponse
+                )
+                result = self.execute_with_fallback(
+                    chain,
+                    prompt,
+                    ModificationResponse,
+                    system_message + " Return valid modification JSON only."
+                )
+                updated_places = result.get('places')
+                if updated_places is None:
+                    updated_places = existing_places or []
+                updated_places = [p for p in updated_places if isinstance(p, dict)]
+                response_text = result.get('response', 'I have updated your itinerary as requested.')
+            # Geocode as before, convert Pydantic if needed
+            if updated_places is None:
+                updated_places = []
+            updated_places = [p for p in updated_places if isinstance(p, dict)]
             updated_places = self.geocode_places(updated_places, city)
-
             return {
                 "city": city,
                 "interests": interests,
@@ -197,7 +247,6 @@ class ItineraryAgent(BaseAgent):
                 "type": "modification",
                 "response": response_text
             }
-
         except Exception as e:
             print(f"Modification error: {e}")
             return {

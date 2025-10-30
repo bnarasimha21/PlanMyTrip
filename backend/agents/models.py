@@ -17,6 +17,10 @@ class Place(BaseModel):
 
 class TripExtractionResponse(BaseModel):
     """Response model for trip extraction"""
+    # New generic destination fields (preferred)
+    destination: Optional[str] = Field(description="Destination name (city or country)", default=None)
+    destination_type: Optional[str] = Field(description="Type of destination: city|country", default=None)
+    # Backward compatibility
     city: str = Field(description="City name")
     interests: str = Field(description="Comma-separated interests")
     days: int = Field(description="Number of days")
@@ -47,6 +51,9 @@ class SearchResults(BaseModel):
 class AgentState(BaseModel):
     """State model for LangGraph agents"""
     query: str = Field(description="Original user query")
+    # New generic destination fields (preferred)
+    destination: Optional[str] = Field(description="Target destination (city or country)", default=None)
+    destination_type: Optional[str] = Field(description="Destination type", default=None)
     city: Optional[str] = Field(description="Target city", default=None)
     interests: Optional[str] = Field(description="User interests", default=None)
     days: Optional[int] = Field(description="Number of days", default=None)

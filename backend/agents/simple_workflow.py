@@ -32,7 +32,9 @@ class SimpleTripPlanningWorkflow:
         result = self.extraction_agent.run(initial_state)
 
         return {
-            "city": result.city,
+            "destination": result.destination or result.city,
+            "destination_type": result.destination_type or "city",
+            "city": result.destination or result.city,  # deprecated mirror
             "interests": result.interests,
             "days": result.days
         }
@@ -42,6 +44,8 @@ class SimpleTripPlanningWorkflow:
         # Initialize state
         state = AgentState(
             query=f"Generate itinerary for {city} for {days} days with interests {interests}",
+            destination=city,
+            destination_type="city",
             city=city,
             interests=interests,
             days=days,
@@ -56,6 +60,8 @@ class SimpleTripPlanningWorkflow:
         state = self.itinerary_agent.run(state)
 
         return {
+            "destination": state.destination or state.city,
+            "destination_type": state.destination_type or "city",
             "city": state.city,
             "interests": state.interests,
             "days": state.days,
@@ -79,6 +85,8 @@ class SimpleTripPlanningWorkflow:
         # Initialize state
         state = AgentState(
             query=instruction,
+            destination=city,
+            destination_type="city",
             city=city,
             interests=interests,
             days=days,
@@ -102,6 +110,8 @@ class SimpleTripPlanningWorkflow:
             state = self.question_agent.run(state)
 
             return {
+                "destination": state.destination or state.city,
+                "destination_type": state.destination_type or "city",
                 "city": state.city,
                 "interests": state.interests,
                 "days": state.days,
@@ -114,6 +124,8 @@ class SimpleTripPlanningWorkflow:
             state = self.itinerary_agent.run(state)
 
             return {
+                "destination": state.destination or state.city,
+                "destination_type": state.destination_type or "city",
                 "city": state.city,
                 "interests": state.interests,
                 "days": state.days,

@@ -283,6 +283,10 @@ class ExtractRequest(BaseModel):
     text: str
 
 class ItineraryRequest(BaseModel):
+    # New generic destination fields (preferred)
+    destination: Optional[str] = None
+    destination_type: Optional[str] = None  # e.g., "city" | "country"
+    # Backward compatibility
     city: Optional[str] = None
     interests: Optional[str] = None
     days: Optional[int] = None
@@ -300,7 +304,11 @@ class Place(BaseModel):
     notes: Optional[str] = None
 
 class ModifyRequest(BaseModel):
-    city: str
+    # New generic destination fields (preferred)
+    destination: Optional[str] = None
+    destination_type: Optional[str] = None  # e.g., "city" | "country"
+    # Backward compatibility
+    city: Optional[str] = None
     interests: str
     days: int
     places: List[Place]
@@ -369,14 +377,16 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
         user_id = req.user_id or "default"
         subscription_plan = req.subscription_plan or get_user_subscription_plan(user_id)
         
-        if req.trip_request and not (req.city and req.interests and req.days):
+        if req.trip_request and not ((req.destination or req.city) and req.interests and req.days):
             # Extract details first if needed
             extracted = trip_workflow.extract_trip_request(req.trip_request)
-            city = extracted["city"]
+            destination = extracted.get("destination") or extracted.get("city")
+            destination_type = extracted.get("destination_type") or "city"
             interests = extracted["interests"]
             days = extracted["days"]
         else:
-            city = req.city or "Bangalore"
+            destination = req.destination or req.city or "Bangalore"
+            destination_type = req.destination_type or "city"
             interests = req.interests or "art, food"
             days = req.days or 1
 
@@ -388,7 +398,9 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
                 "type": "subscription_limit",
                 "message": days_check["message"],
                 "details": days_check,
-                "city": city,
+                "destination": destination,
+                "destination_type": destination_type,
+                "city": destination,  # deprecated mirror
                 "interests": interests,
                 "days": days,
                 "places": []
@@ -403,14 +415,17 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
                 "type": "subscription_limit",
                 "message": usage_check["message"],
                 "details": usage_check,
-                "city": city,
+                "destination": destination,
+                "destination_type": destination_type,
+                "city": destination,  # deprecated mirror
                 "interests": interests,
                 "days": days,
                 "places": []
             }
 
         # Generate itinerary
-        result = trip_workflow.generate_itinerary(city=city, interests=interests, days=days)
+        # For now, workflow still expects a city parameter; pass destination string
+        result = trip_workflow.generate_itinerary(city=destination, interests=interests, days=days)
         
         # Increment usage counter
         increment_usage(user_id, current_month)
@@ -421,7 +436,8 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
         
         # Record trip in database for analytics
         places_count = len(result.get("places", []))
-        db_manager.record_trip(user_id, city, interests, days, places_count)
+        # Record using destination string in the legacy city field for now
+        db_manager.record_trip(user_id, destination, interests, days, places_count)
         
         # Add subscription info to result with updated usage
         limits = SUBSCRIPTION_LIMITS[subscription_plan]
@@ -433,13 +449,21 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
             },
             "features": limits["features"]
         }
+
+        # Include destination fields in response for clients
+        result["destination"] = destination
+        result["destination_type"] = destination_type
+        # Deprecated mirror for backward compatibility
+        result["city"] = destination
         
         return result
 
     except Exception as e:
         print(f"Itinerary error: {e}")
         return {
-            "city": city if 'city' in locals() else "Bangalore",
+            "destination": destination if 'destination' in locals() else "Bangalore",
+            "destination_type": destination_type if 'destination_type' in locals() else "city",
+            "city": (destination if 'destination' in locals() else "Bangalore"),
             "interests": interests if 'interests' in locals() else "art, food",
             "days": days if 'days' in locals() else 1,
             "places": [],
@@ -454,13 +478,15 @@ def modify(req: ModifyRequest) -> Dict[str, Any]:
     try:
         print(f"\n=== /modify endpoint called (LangGraph) ===")
         print(f"Instruction: '{req.instruction}'")
-        print(f"City: {req.city}, Days: {req.days}")
+        dest = req.destination or req.city
+        dest_type = req.destination_type or "city"
+        print(f"Destination: {dest} ({dest_type}), Days: {req.days}")
 
         places_dicts = [p.model_dump() for p in req.places]
         print(f"Number of existing places: {len(places_dicts)}")
 
         result = trip_workflow.handle_modification(
-            city=req.city,
+            city=dest,
             interests=req.interests,
             days=req.days,
             existing_places=places_dicts,
@@ -474,7 +500,9 @@ def modify(req: ModifyRequest) -> Dict[str, Any]:
     except Exception as e:
         print(f"Modify error: {e}")
         return {
-            "city": req.city,
+            "destination": dest,
+            "destination_type": dest_type,
+            "city": dest,  # deprecated mirror
             "interests": req.interests,
             "days": req.days,
             "places": [p.model_dump() for p in req.places],
