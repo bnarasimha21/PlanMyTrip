@@ -141,3 +141,12 @@ config.json
 secrets.json
 *.key
 *.pem
+
+# React Native iOS
+mobile/ios/Pods/
+mobile/ios/Podfile.lock
+mobile/ios/build/
+mobile/ios/DerivedData/
+mobile/ios/*.xcworkspace
+mobile/ios/xcuserdata/
+mobile/ios/*.xcuserstate
