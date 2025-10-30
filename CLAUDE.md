@@ -41,12 +41,12 @@ The backend uses a modular agent-based architecture powered by LangGraph:
 
 ### Frontend Components
 Single-page React app (`frontend/src/App.tsx`) with three main panels:
-- **Left Panel**: Trip request input with voice recognition (Annyang)
+- **Left Panel**: Trip request input (text)
 - **Center Panel**: Interactive Mapbox map with custom markers and popups
 - **Right Panel**: Itinerary display and AI chatbot interface
 
 ### Key Technologies
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Mapbox GL JS, Annyang
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Mapbox GL JS
 - **Backend**: FastAPI, LangGraph, OpenAI GPT-4o-mini, GTTS, Mapbox Geocoding
 - **Testing**: Playwright (frontend), pytest (backend)
 
@@ -76,7 +76,6 @@ Single-page React app (`frontend/src/App.tsx`) with three main panels:
 ### Frontend
 - Single App.tsx component with React hooks for state management
 - Mapbox integration with custom marker styling and popups
-- Voice input integration with speech recognition
 - Real-time map updates when itinerary changes
 
 ## Testing
