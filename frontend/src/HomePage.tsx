@@ -93,7 +93,7 @@ const HomePage: React.FC = () => {
               </span>
             </h1>
             <p className="text-xl md:text-2xl text-slate-600 mb-6 max-w-3xl mx-auto leading-relaxed">
-              AI-powered travel planning with interactive maps, voice assistance, and personalized itineraries. 
+              AI-powered travel planning with interactive maps and personalized itineraries. 
               Discover amazing places and create unforgettable memories.
             </p>
             <div className="flex flex-row gap-3 justify-center">
@@ -158,16 +158,7 @@ const HomePage: React.FC = () => {
               </p>
             </div>
 
-            {/* Feature 3 */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-400 to-sky-500 rounded-2xl flex items-center justify-center text-2xl mb-6">
-                🎤
-              </div>
-              <h3 className="text-2xl font-semibold mb-4 text-slate-800">Voice Assistant</h3>
-              <p className="text-slate-600 leading-relaxed">
-                Talk to our AI assistant naturally. Ask questions, make changes, and get recommendations using voice commands.
-              </p>
-            </div>
+            
 
             {/* Feature 4 */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300">
@@ -250,10 +241,6 @@ const HomePage: React.FC = () => {
                 </li>
                 <li className="flex items-center gap-3">
                   <span className="text-blue-500 text-lg">✓</span>
-                  <span className="text-slate-600">Basic voice commands</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <span className="text-blue-500 text-lg">✓</span>
                   <span className="text-slate-600">Community support</span>
                 </li>
               </ul>
@@ -301,10 +288,7 @@ const HomePage: React.FC = () => {
                   <span className="text-blue-500 text-lg">✓</span>
                   <span className="text-slate-600">Multi-day itineraries (up to 30 days)</span>
                 </li>
-                <li className="flex items-center gap-3">
-                  <span className="text-blue-500 text-lg">✓</span>
-                  <span className="text-slate-600">Advanced voice assistant</span>
-                </li>
+                
                 <li className="flex items-center gap-3">
                   <span className="text-blue-500 text-lg">✓</span>
                   <span className="text-slate-600">Priority support</span>

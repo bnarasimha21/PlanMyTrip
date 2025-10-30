@@ -8,7 +8,6 @@ An AI-powered travel planning application that generates personalized itinerarie
 
 ### 🎯 **Core Functionality**
 - **AI Trip Planning**: Generate custom itineraries based on your interests and destination
-- **Voice Input**: Speak your trip requests using built-in voice recognition
 - **Interactive Maps**: Visualize your itinerary on beautiful Mapbox maps with custom markers
 - **AI Assistant Chatbot**: Ask questions and modify your itinerary through natural conversation
 
@@ -30,7 +29,6 @@ An AI-powered travel planning application that generates personalized itinerarie
 - **Framework**: React 18 with TypeScript
 - **Styling**: Tailwind CSS with custom gradients and glassmorphism effects
 - **Maps**: Mapbox GL JS for interactive mapping
-- **Voice**: Annyang for speech recognition
 - **Build Tool**: Vite for fast development and building
 
 ### **Backend** (FastAPI + Python)
@@ -116,11 +114,9 @@ Visit `http://localhost:5173` to use the application!
 
 ## 📖 Usage Guide
 
-### 🎤 **Creating a Trip Request**
-1. **Voice Input**: Click the microphone icon and speak your request
-   - Example: "Plan a 2-day art and food tour in Paris"
-2. **Text Input**: Type your request in the text area
-3. **Get Details**: Click to extract structured information from your request
+### 📝 **Creating a Trip Request**
+1. **Text Input**: Type your request in the text area
+2. **Get Details**: Click to extract structured information from your request
 
 ### 🗺️ **Generating Your Itinerary**
 1. Click "Generate Itinerary" after extracting details
@@ -237,10 +233,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Verify backend is running on the correct port
 - Check browser console for JavaScript errors
 
-#### Voice input not working:
-- Ensure HTTPS or localhost (required for microphone access)
-- Check browser microphone permissions
-- Verify annyang library is loaded correctly
+
 
 #### Map not displaying:
 - Verify Mapbox token is valid and not expired
