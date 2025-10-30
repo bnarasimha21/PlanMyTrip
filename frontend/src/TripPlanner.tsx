@@ -1169,18 +1169,6 @@ export default function TripPlanner() {
 
       setStatus('');
       
-      // Manage listening state after response
-      if (continuousListeningRef.current) {
-        console.log('🔄 Continuous listening enabled, will restart after response (sendChatMessage)');
-        // Restart listening immediately without delays
-        setTimeout(() => {
-          console.log('🔄 Restarting listening immediately (sendChatMessage)');
-          startChatListening();
-        }, 100);
-      } else {
-        console.log('🔄 Continuous listening disabled, stopping listening (sendChatMessage)');
-        setIsChatListening(false);
-      }
     } catch (error) {
       const errorMessage = { 
         type: 'bot' as const, 
