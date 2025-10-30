@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, NativeModules } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, NativeModules } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,6 +15,8 @@ export default function TripPlannerScreen() {
   const cameraRef = useRef<any>(null);
   const hasCenteredRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [places, setPlaces] = useState<Array<{ name: string; latitude?: number; longitude?: number; category?: string }>>([]);
+  const [mapStyleLoaded, setMapStyleLoaded] = useState(false);
 
   const resolveApiBase = (): string => {
     if (Platform.OS === 'ios') {
@@ -62,8 +64,8 @@ export default function TripPlannerScreen() {
           city: destination,
           interests,
           days,
-          user_id: 'mobile-default',
-          subscription_plan: 'free',
+          user_id: 'bnarasimha21@gmail.com',
+          subscription_plan: 'premium',
         }),
       });
       if (!itinResp.ok) {
@@ -72,6 +74,30 @@ export default function TripPlannerScreen() {
       }
       let data = await itinResp.json();
       if (data && data.places && Array.isArray(data.places)) {
+        setPlaces(data.places || []);
+        console.log('[TripPlannerScreen] places received:', (data.places || []).length);
+        // Fit camera to show all places (and user if available)
+        const coords = (data.places || [])
+          .filter((p: any) => typeof p.longitude === 'number' && typeof p.latitude === 'number')
+          .map((p: any) => [p.longitude, p.latitude] as number[]);
+        if (userCoordinate) coords.push(userCoordinate);
+        if (cameraRef.current && coords.length >= 1) {
+          let minLng = coords[0][0], maxLng = coords[0][0], minLat = coords[0][1], maxLat = coords[0][1];
+          coords.forEach(([lng, lat]) => {
+            if (lng < minLng) minLng = lng;
+            if (lng > maxLng) maxLng = lng;
+            if (lat < minLat) minLat = lat;
+            if (lat > maxLat) maxLat = lat;
+          });
+          if (minLng === maxLng && minLat === maxLat) {
+            cameraRef.current.setCamera({ centerCoordinate: [minLng, minLat], zoomLevel: 13, animationDuration: 300 });
+          } else {
+            cameraRef.current.setCamera({
+              bounds: { ne: [maxLng, maxLat], sw: [minLng, minLat], padding: 60 },
+              animationDuration: 400,
+            });
+          }
+        }
         if ((data.places as any[]).length === 0) {
           // Fallback: let backend handle extraction internally from free text
           const directResp = await fetch(`${API_BASE}/itinerary`, {
@@ -85,16 +111,18 @@ export default function TripPlannerScreen() {
           });
           if (directResp.ok) {
             data = await directResp.json();
+            setPlaces(data.places || []);
+            console.log('[TripPlannerScreen] places after fallback:', (data.places || []).length);
           }
         }
-        Alert.alert('Plan Ready', `Found ${data.places?.length || 0} places for ${data.destination || destination}.`);
+        // no popup
       } else if (data && data.error && data.message) {
-        Alert.alert('Limit', data.message);
+        // no popup
       } else {
-        Alert.alert('No Results', 'No places returned. Try rephrasing your request.');
+        // no popup
       }
     } catch (e: any) {
-      Alert.alert('Error', `Failed to generate itinerary. ${e?.message || ''}`.trim());
+      // no popup
     } finally {
       setIsLoading(false);
     }
@@ -154,9 +182,32 @@ export default function TripPlannerScreen() {
               ref={mapRef}
               style={styles.map}
               styleURL={MapboxGL.StyleURL.Street}
+              onDidFinishLoadingStyle={() => setMapStyleLoaded(true)}
             >
               {userCoordinate ? (
                 <MapboxGL.PointAnnotation id="user-point" coordinate={userCoordinate} />
+              ) : null}
+              {mapStyleLoaded ? (
+              <MapboxGL.ShapeSource
+                id="places-source"
+                key={`places-${places.length}`}
+                shape={{
+                  type: 'FeatureCollection',
+                  features: places
+                    .filter(p => typeof p.longitude === 'number' && typeof p.latitude === 'number')
+                    .map((p, idx) => ({
+                      type: 'Feature',
+                      id: `place-${idx}`,
+                      properties: { name: p.name || '', category: p.category || '' },
+                      geometry: { type: 'Point', coordinates: [p.longitude as number, p.latitude as number] },
+                    })),
+                }}
+              >
+                <MapboxGL.CircleLayer
+                  id="places-layer"
+                  style={{ circleColor: '#ef4444', circleOpacity: 0.95, circleRadius: 7, circleStrokeWidth: 2, circleStrokeColor: '#ffffff' }}
+                />
+              </MapboxGL.ShapeSource>
               ) : null}
               <MapboxGL.Camera
                 ref={cameraRef}
@@ -177,6 +228,8 @@ export default function TripPlannerScreen() {
             )}
           </TouchableOpacity>
         </View>
+        {/* Minimal inline debug to verify data flow visually */}
+        <Text style={{ fontSize: 12, color: '#374151', marginTop: 6 }}>Places: {places.length}</Text>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -245,5 +298,21 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff', fontWeight: 'bold', fontSize: 18,
+  },
+  placeMarker: {
+    backgroundColor: 'rgba(37, 99, 235, 0.9)',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  placeMarkerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#fff',
   },
 });

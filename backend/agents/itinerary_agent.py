@@ -12,19 +12,34 @@ class ItineraryAgent(BaseAgent):
     """Agent responsible for generating and modifying itineraries"""
 
     def geocode_places(self, places: List[dict], city: str) -> List[dict]:
-        """Add geocoding to places that don't have coordinates"""
+        """Ensure places have numeric latitude/longitude; geocode if missing/invalid."""
         clean_places = []
         for place in places:
             if not isinstance(place, dict):
                 continue
-            if place.get("latitude") is not None and place.get("longitude") is not None:
-                clean_places.append(place)
-                continue
-            place_name = place.get("name")
-            address = place.get("address")
-            coords = geocode_place_tool(place_name, address, city)
-            place["latitude"] = coords["latitude"]
-            place["longitude"] = coords["longitude"]
+            lat_raw = place.get("latitude")
+            lng_raw = place.get("longitude")
+            lat: float | None = None
+            lng: float | None = None
+            # Coerce existing values to float if possible
+            try:
+                if lat_raw is not None and lat_raw != "":
+                    lat = float(lat_raw)
+                if lng_raw is not None and lng_raw != "":
+                    lng = float(lng_raw)
+            except Exception:
+                lat = None
+                lng = None
+
+            if lat is None or lng is None:
+                place_name = place.get("name")
+                address = place.get("address")
+                coords = geocode_place_tool(place_name, address, city)
+                lat = coords["latitude"]
+                lng = coords["longitude"]
+
+            place["latitude"] = lat
+            place["longitude"] = lng
             clean_places.append(place)
         return clean_places
 

@@ -373,6 +373,35 @@ def extract(req: ExtractRequest) -> Dict[str, Any]:
 def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
     """Generate itinerary using LangGraph agents"""
     try:
+        # --- TEMP MOCK: Return static Paris data for testing ---
+        text = (req.trip_request or "").lower()
+        dest_raw = (req.destination or req.city or "").lower()
+        if "paris" in text or "paris" in dest_raw:
+            destination = req.destination or req.city or "Paris"
+            destination_type = req.destination_type or "city"
+            interests = req.interests or "art, food"
+            days = req.days or 2
+            mock_places = [
+                {"name": "Eiffel Tower", "category": "landmark", "latitude": 48.8584, "longitude": 2.2945},
+                {"name": "Louvre Museum", "category": "museum", "latitude": 48.8606, "longitude": 2.3376},
+                {"name": "Notre-Dame Cathedral", "category": "landmark", "latitude": 48.8530, "longitude": 2.3499},
+                {"name": "Montmartre", "category": "neighborhood", "latitude": 48.8867, "longitude": 2.3431},
+                {"name": "Musée d'Orsay", "category": "museum", "latitude": 48.8600, "longitude": 2.3266},
+            ]
+        return {
+            "destination": destination,
+            "destination_type": destination_type,
+            "city": destination,
+            "interests": interests,
+            "days": days,
+            "places": mock_places,
+            "subscription_info": {
+                "plan": req.subscription_plan or get_user_subscription_plan(req.user_id or "default"),
+                "usage": {"trips_used": 0, "max_trips": SUBSCRIPTION_LIMITS.get("premium", {}).get("max_trips_per_month", -1)},
+                "features": SUBSCRIPTION_LIMITS.get("premium", {}).get("features", [])
+            }
+        }
+        #--- END TEMP MOCK ---
         # Get user subscription plan
         user_id = req.user_id or "default"
         subscription_plan = req.subscription_plan or get_user_subscription_plan(user_id)
@@ -427,7 +456,8 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
         # Generate itinerary
         # For now, workflow still expects a city parameter; pass destination string
         result = trip_workflow.generate_itinerary(city=destination, interests=interests, days=days)
-        
+
+        print(result)
         # Increment usage counter
         increment_usage(user_id, current_month)
         
