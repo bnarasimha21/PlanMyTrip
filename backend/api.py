@@ -376,7 +376,7 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
         # Get user subscription plan
         user_id = req.user_id or "default"
         subscription_plan = req.subscription_plan or get_user_subscription_plan(user_id)
-        
+
         if req.trip_request and not ((req.destination or req.city) and req.interests and req.days):
             # Extract details first if needed
             extracted = trip_workflow.extract_trip_request(req.trip_request)
@@ -392,6 +392,7 @@ def itinerary(req: ItineraryRequest) -> Dict[str, Any]:
 
         # Check days limit
         days_check = check_days_limit(subscription_plan, days)
+
         if not days_check["allowed"]:
             return {
                 "error": True,
