@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { GoogleLogin as GoogleLoginButton, CredentialResponse } from '@react-oauth/google';
 import { useAuth } from './AuthContext';
 
@@ -80,27 +80,33 @@ const GoogleLogin: React.FC<GoogleLoginProps> = ({
     }
   };
 
+  // Track viewport to adjust button sizing on mobile
+  const [isMobile, setIsMobile] = useState<boolean>(typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false);
+
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    if (mql.addEventListener) mql.addEventListener('change', handler);
+    else mql.addListener(handler);
+    return () => {
+      if (mql.removeEventListener) mql.removeEventListener('change', handler);
+      else mql.removeListener(handler);
+    };
+  }, []);
+
   return (
     <div className={`google-login-wrapper ${className}`}>
       <style dangerouslySetInnerHTML={{
         __html: `
-          .google-login-wrapper iframe {
-            font-size: 18px !important;
-          }
+          .google-login-wrapper iframe { font-size: ${isMobile ? '14px' : '18px'} !important; }
           .google-login-wrapper div[role="button"] {
-            font-size: 18px !important;
+            font-size: ${isMobile ? '14px' : '18px'} !important;
             font-weight: 600 !important;
-            height: 52px !important;
-            min-height: 52px !important;
+            height: ${isMobile ? '40px' : '52px'} !important;
+            min-height: ${isMobile ? '40px' : '52px'} !important;
           }
-          .google-login-wrapper div[role="button"] span {
-            font-size: 18px !important;
-            font-weight: 600 !important;
-          }
-          .google-login-wrapper div[role="button"] div {
-            font-size: 18px !important;
-            font-weight: 600 !important;
-          }
+          .google-login-wrapper div[role="button"] span { font-size: ${isMobile ? '14px' : '18px'} !important; font-weight: 600 !important; }
+          .google-login-wrapper div[role="button"] div  { font-size: ${isMobile ? '14px' : '18px'} !important; font-weight: 600 !important; }
         `
       }} />
       <GoogleLoginButton
@@ -108,7 +114,7 @@ const GoogleLogin: React.FC<GoogleLoginProps> = ({
         onError={handleError}
         useOneTap={false}
         theme="outline"
-        size="large"
+        size={isMobile ? 'medium' : 'large'}
         text="continue_with"
         shape="rectangular"
         logo_alignment="left"

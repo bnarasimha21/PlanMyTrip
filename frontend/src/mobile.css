@@ -1,0 +1,167 @@
+/* Mobile-only overrides (<=767px) */
+/* Features: 2-column grid on phones, compact cards & fonts */
+#features-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.75rem !important;
+}
+#features-grid .feature-card {
+  padding: 0.75rem !important; /* p-3 */
+}
+#features-grid .feature-card .feature-header {
+  display: flex !important;
+  align-items: center !important; /* vertical center */
+  gap: 0.75rem !important; /* more space between icon and title */
+  margin-bottom: 0.5rem !important;
+}
+#features-grid .feature-card .feature-header .w-16,
+#features-grid .feature-card .feature-header .h-16 {
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+  margin-bottom: 0 !important;
+}
+#features-grid .feature-card h3 { /* card heading */
+  font-size: 0.95rem !important; /* slightly smaller */
+  line-height: 1.25rem !important; /* better wrap spacing */
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+#features-grid .feature-card p { /* card body */
+  font-size: 0.8125rem !important; /* ~text-sm */
+  line-height: 1.25rem !important;
+}
+
+/* Add vertical gaps inside feature cards */
+#features-grid .feature-card > * + * {
+  margin-top: 0.5rem !important;
+}
+
+/* Pricing: 2-column grid on phones, compact plans & fonts */
+#pricing-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.75rem !important;
+}
+#pricing-grid .plan-card {
+  padding: 0.75rem !important;
+}
+#pricing-grid .plan-card h3 { /* plan title */
+  font-size: 1rem !important;
+}
+#pricing-grid .plan-card .text-4xl { /* price */
+  font-size: 1.25rem !important;
+}
+#pricing-grid .plan-card li { /* feature bullets */
+  font-size: 0.8125rem !important;
+}
+
+/* Add vertical gaps inside pricing cards */
+#pricing-grid .plan-card > * + * {
+  margin-top: 0.75rem !important;
+}
+#pricing-grid .plan-card ul li + li {
+  margin-top: 0.375rem !important;
+}
+
+/* Add slight vertical gaps between top-level sections on mobile */
+section, #features, .py-20 {
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+
+/* Make the overall typography and spacing more compact */
+html {
+  font-size: 14px !important; /* shrink rem scale on phones */
+}
+
+/* Common padding reductions */
+.px-6 { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+.py-6 { padding-top: 0.75rem !important; padding-bottom: 0.75rem !important; }
+.p-6  { padding: 0.75rem !important; }
+.px-4 { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+.py-3 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+.px-8 { padding-left: 1rem !important; padding-right: 1rem !important; }
+.p-8  { padding: 1rem !important; }
+.py-20 { padding-top: 1.25rem !important; padding-bottom: 1.25rem !important; }
+.pt-20 { padding-top: 1.25rem !important; }
+.pb-20 { padding-bottom: 1.25rem !important; }
+
+/* Tighter gaps */
+.gap-4 { gap: 0.5rem !important; }
+.gap-3 { gap: 0.5rem !important; }
+.gap-8 { gap: 0.75rem !important; }
+.mb-16 { margin-bottom: 0.75rem !important; }
+.mb-8 { margin-bottom: 0.5rem !important; }
+
+/* Reduce common text sizes */
+.text-7xl { font-size: 2rem !important; line-height: 2.25rem !important; }
+.text-6xl { font-size: 1.875rem !important; line-height: 2.125rem !important; }
+.text-5xl { font-size: 1.75rem !important; line-height: 2rem !important; }
+.text-4xl { font-size: 1.375rem !important; line-height: 1.75rem !important; }
+.text-3xl { font-size: 1.5rem !important; line-height: 1.75rem !important; }
+.text-2xl { font-size: 1.25rem !important; line-height: 1.5rem !important; }
+.text-xl  { font-size: 1rem !important; line-height: 1.375rem !important; }
+.text-lg  { font-size: 0.9375rem !important; line-height: 1.25rem !important; }
+.text-base{ font-size: 0.875rem !important; line-height: 1.25rem !important; }
+
+/* Stack the main TripPlanner layout and let height grow */
+.flex.h-\[calc\(100vh-100px\)\] {
+  flex-direction: column !important;
+  height: auto !important;
+}
+
+/* Make fixed sidebars take full width on mobile */
+.w-\[520px\] {
+  width: 100% !important;
+}
+
+/* Ensure the map section is visible with a sensible height - reduced for mobile */
+.relative > .w-full.h-full.rounded-none {
+  height: 45vh !important;
+  min-height: 300px !important;
+  max-height: 50vh !important;
+}
+
+/* Align map horizontally with panel content on mobile */
+#map-wrapper {
+  padding-left: 1rem !important; /* match p-4 */
+  padding-right: 1rem !important;
+  box-sizing: border-box !important;
+}
+
+/* Make map overlay controls smaller on mobile for cleaner view */
+#day-night-toggle {
+  transform: scale(0.8) !important;
+  transform-origin: top left !important;
+  top: 0.5rem !important;
+  left: 1.5rem !important;
+}
+
+#route-controls {
+  transform: scale(0.9) !important;
+  transform-origin: top right !important;
+  top: 0.5rem !important;
+  right: 4.5rem !important;
+}
+
+#route-controls button {
+  font-size: 0.8125rem !important; /* small */
+  padding: 0.5rem 0.75rem !important; /* tighter */
+}
+
+/* Slightly narrower default wide buttons */
+.px-6.py-3 { padding-left: 1rem !important; padding-right: 1rem !important; }
+.px-12 { padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
+.py-4  { padding-top: 0.625rem !important; padding-bottom: 0.625rem !important; }
+
+/* Reduce some utility widths used for buttons (e.g., Google login) */
+.w-48 { width: 10rem !important; }
+
+/* Cards and icons smaller */
+.rounded-2xl { border-radius: 0.75rem !important; }
+.w-16 { width: 2.5rem !important; }
+.h-16 { height: 2.5rem !important; }
+
+
+
