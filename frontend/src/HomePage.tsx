@@ -135,24 +135,28 @@ const HomePage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div id="features-grid" className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Feature 1 */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-sky-500 rounded-2xl flex items-center justify-center text-2xl mb-6">
-                🤖
+            <div className="feature-card bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300">
+              <div className="feature-header">
+                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-sky-500 rounded-2xl flex items-center justify-center text-2xl mb-6">
+                  🤖
+                </div>
+                <h3 className="text-2xl font-semibold mb-4 text-slate-800">AI-Powered Planning</h3>
               </div>
-              <h3 className="text-2xl font-semibold mb-4 text-slate-800">AI-Powered Planning</h3>
               <p className="text-slate-600 leading-relaxed">
                 Our advanced AI understands your preferences and creates personalized itineraries tailored to your interests and travel style.
               </p>
             </div>
 
             {/* Feature 2 */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300">
-              <div className="w-16 h-16 bg-gradient-to-r from-sky-500 to-blue-500 rounded-2xl flex items-center justify-center text-2xl mb-6">
-                🗺️
+            <div className="feature-card bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300">
+              <div className="feature-header">
+                <div className="w-16 h-16 bg-gradient-to-r from-sky-500 to-blue-500 rounded-2xl flex items-center justify-center text-2xl mb-6">
+                  🗺️
+                </div>
+                <h3 className="text-2xl font-semibold mb-4 text-slate-800">Interactive Maps</h3>
               </div>
-              <h3 className="text-2xl font-semibold mb-4 text-slate-800">Interactive Maps</h3>
               <p className="text-slate-600 leading-relaxed">
                 Visualize your journey with beautiful, interactive maps that show your route and help you navigate between destinations.
               </p>
@@ -161,33 +165,39 @@ const HomePage: React.FC = () => {
             
 
             {/* Feature 4 */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300">
-              <div className="w-16 h-16 bg-gradient-to-r from-sky-400 to-blue-500 rounded-2xl flex items-center justify-center text-2xl mb-6">
-                ⚡
+            <div className="feature-card bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300">
+              <div className="feature-header">
+                <div className="w-16 h-16 bg-gradient-to-r from-sky-400 to-blue-500 rounded-2xl flex items-center justify-center text-2xl mb-6">
+                  ⚡
+                </div>
+                <h3 className="text-2xl font-semibold mb-4 text-slate-800">Real-time Updates</h3>
               </div>
-              <h3 className="text-2xl font-semibold mb-4 text-slate-800">Real-time Updates</h3>
               <p className="text-slate-600 leading-relaxed">
                 Get instant updates and modifications to your itinerary. Our AI adapts to your feedback in real-time.
               </p>
             </div>
 
             {/* Feature 5 */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-sky-600 rounded-2xl flex items-center justify-center text-2xl mb-6">
-                🎯
+            <div className="feature-card bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300">
+              <div className="feature-header">
+                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-sky-600 rounded-2xl flex items-center justify-center text-2xl mb-6">
+                  🎯
+                </div>
+                <h3 className="text-2xl font-semibold mb-4 text-slate-800">Personalized Recommendations</h3>
               </div>
-              <h3 className="text-2xl font-semibold mb-4 text-slate-800">Personalized Recommendations</h3>
               <p className="text-slate-600 leading-relaxed">
                 Discover hidden gems and local favorites based on your interests, budget, and travel preferences.
               </p>
             </div>
 
             {/* Feature 6 */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300">
-              <div className="w-16 h-16 bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl flex items-center justify-center text-2xl mb-6">
-                📱
+            <div className="feature-card bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300">
+              <div className="feature-header">
+                <div className="w-16 h-16 bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl flex items-center justify-center text-2xl mb-6">
+                  📱
+                </div>
+                <h3 className="text-2xl font-semibold mb-4 text-slate-800">Mobile Friendly</h3>
               </div>
-              <h3 className="text-2xl font-semibold mb-4 text-slate-800">Mobile Friendly</h3>
               <p className="text-slate-600 leading-relaxed">
                 Access your itinerary anywhere, anytime. Our responsive design works perfectly on all devices.
               </p>
@@ -210,9 +220,9 @@ const HomePage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div id="pricing-grid" className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {/* Freemium Plan */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300 relative">
+            <div className="plan-card bg-white/90 backdrop-blur-sm rounded-2xl p-8 border border-blue-200 hover:bg-white hover:shadow-lg transition-all duration-300 relative">
               <div className="text-center mb-8">
                 <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-sky-500 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4">
                   🆓
@@ -254,7 +264,7 @@ const HomePage: React.FC = () => {
             </div>
 
             {/* Premium Plan */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 border-2 border-blue-300 hover:bg-white hover:shadow-xl transition-all duration-300 relative">
+            <div className="plan-card bg-white/90 backdrop-blur-sm rounded-2xl p-8 border-2 border-blue-300 hover:bg-white hover:shadow-xl transition-all duration-300 relative">
               {/* Popular Badge */}
               <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                 <span className="bg-gradient-to-r from-blue-600 to-sky-600 text-white px-6 py-2 rounded-full text-sm font-semibold shadow-lg">

@@ -1,0 +1,8 @@
+/* Desktop-only touch-ups (>=768px). Keep default Tailwind layout. */
+
+/* Ensure the map fills the available column height on desktop */
+.relative > .w-full.h-full.rounded-none {
+  height: 100% !important;
+}
+
+
