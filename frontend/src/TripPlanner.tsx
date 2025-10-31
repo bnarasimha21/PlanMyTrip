@@ -245,11 +245,13 @@ export default function TripPlanner() {
       // Build a labeled marker element (icon + name)
       const img = document.createElement('img');
       img.src = cat.includes('food') ? FOOD_ICON : 
-                cat.includes('art') ? ART_ICON : 
-                (cat.includes('sight') || cat.includes('culture') || cat.includes('temple') || cat.includes('monument') || cat.includes('landmark') || cat.includes('tourist')) ? SIGHTSEEING_ICON : 
-                DEFAULT_ICON;
-      img.style.width = '48px';
-      img.style.height = '48px';
+                 cat.includes('art') ? ART_ICON : 
+                 (cat.includes('sight') || cat.includes('culture') || cat.includes('temple') || cat.includes('monument') || cat.includes('landmark') || cat.includes('tourist')) ? SIGHTSEEING_ICON : 
+                 DEFAULT_ICON;
+      const isMobileViewport = typeof window !== 'undefined' && window.innerWidth <= 767;
+      const markerSizePx = isMobileViewport ? 32 : 48;
+      img.style.width = `${markerSizePx}px`;
+      img.style.height = `${markerSizePx}px`;
       img.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))';
       img.style.borderRadius = '50%';
       img.style.cursor = 'pointer';
@@ -264,12 +266,12 @@ export default function TripPlanner() {
 
       const label = document.createElement('span');
       label.textContent = p.name;
-      label.style.fontSize = '12px';
+      label.style.fontSize = isMobileViewport ? '10px' : '12px';
       label.style.lineHeight = '1';
       label.style.whiteSpace = 'nowrap';
       label.style.color = 'white';
       label.style.background = 'rgba(0,0,0,0.55)';
-      label.style.padding = '4px 8px';
+      label.style.padding = isMobileViewport ? '3px 6px' : '4px 8px';
       label.style.borderRadius = '8px';
       label.style.border = '1px solid rgba(255,255,255,0.15)';
       label.style.boxShadow = '0 2px 6px rgba(0,0,0,0.25)';
@@ -1045,13 +1047,7 @@ export default function TripPlanner() {
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ text: tripRequest }) 
       })).json());
-      
-      // Check subscription limits before generating itinerary
-      const canProceed = await checkUsage(req.days);
-      if (!canProceed) {
-        setStatus('');
-        return;
-      }
+    
       
       const resp = await fetch(`${API_BASE}/itinerary`, {
         method: 'POST',
@@ -1099,7 +1095,6 @@ export default function TripPlanner() {
           }
         }));
         
-        // Also refresh to ensure consistency (small delay)
         if (refreshUsage) {
           setTimeout(() => {
             refreshUsage();
@@ -1596,7 +1591,7 @@ export default function TripPlanner() {
                 />
 
                 {/* Day/Night Toggle - Enhanced Styling */}
-                <div className="absolute top-6 left-6 z-10">
+                <div id="day-night-toggle" className="absolute top-6 left-6 z-10">
                   <div className="relative group">
                     {/* Toggle Switch Container */}
                     <button 
@@ -1693,7 +1688,7 @@ export default function TripPlanner() {
 
                 {/* Route Animation Button Overlay */}
                 {places.length >= 2 && (
-                  <div className="absolute top-6 right-16 z-10 flex gap-3">
+                  <div id="route-controls" className="absolute top-6 right-16 z-10 flex gap-3">
                     <button 
                       onClick={isAnimating ? stopRouteAnimation : startRouteAnimation}
                       className={`py-3 px-6 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg backdrop-blur-sm ${

@@ -130,6 +130,26 @@ html {
   box-sizing: border-box !important;
 }
 
+/* Make map overlay controls smaller on mobile for cleaner view */
+#day-night-toggle {
+  transform: scale(0.8) !important;
+  transform-origin: top left !important;
+  top: 0.5rem !important;
+  left: 1.5rem !important;
+}
+
+#route-controls {
+  transform: scale(0.9) !important;
+  transform-origin: top right !important;
+  top: 0.5rem !important;
+  right: 4.5rem !important;
+}
+
+#route-controls button {
+  font-size: 0.8125rem !important; /* small */
+  padding: 0.5rem 0.75rem !important; /* tighter */
+}
+
 /* Slightly narrower default wide buttons */
 .px-6.py-3 { padding-left: 1rem !important; padding-right: 1rem !important; }
 .px-12 { padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
