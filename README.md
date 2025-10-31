@@ -101,7 +101,7 @@ VITE_API_BASE=http://localhost:8000
 ```bash
 cd backend
 source venv/bin/activate
-python -m uvicorn api:app --reload --host 0.0.0.0 --port 8000
+python3 -m uvicorn api:app --reload --host 0.0.0.0 --port 8000
 ```
 
 #### Start Frontend (Terminal 2):

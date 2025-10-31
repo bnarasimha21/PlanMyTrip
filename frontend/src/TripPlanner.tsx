@@ -490,11 +490,20 @@ export default function TripPlanner() {
       
       console.log('⚙️ Using dynamic padding:', dynamicPadding, 'maxZoom:', maxZoom, 'for range:', maxRange);
       
+      // Adjust padding for mobile devices - smaller viewport needs less padding
+      const isMobile = window.innerWidth <= 767;
+      const mobilePadding = isMobile ? Math.max(dynamicPadding - 15, 20) : dynamicPadding;
+      
       // Delay the fitBounds to ensure markers are rendered
       setTimeout(() => {
         map.fitBounds(bounds, {
-          padding: dynamicPadding, // Use single value for all sides
-          maxZoom: maxZoom,
+          padding: isMobile ? {
+            top: mobilePadding,
+            bottom: mobilePadding,
+            left: mobilePadding,
+            right: mobilePadding
+          } : mobilePadding, // Use object on mobile for better control, number on desktop
+          maxZoom: isMobile ? Math.min(maxZoom, 14) : maxZoom, // Limit zoom on mobile to prevent going out of bounds
           duration: 1200 // Faster animation
         });
       }, 100);
@@ -1016,11 +1025,12 @@ export default function TripPlanner() {
   };
 
   const doItinerary = async () => {
-    if (!user) {
-      setStatus('Please login to generate itineraries');
-      alert('Please login to generate itineraries.');
-      return;
-    }
+    // Temporarily allowing itinerary generation without login
+    // if (!user) {
+    //   setStatus('Please login to generate itineraries');
+    //   alert('Please login to generate itineraries.');
+    //   return;
+    // }
     if (!API_BASE) {
       setStatus('Set VITE_API_BASE in frontend/.env');
       return;
@@ -1575,7 +1585,7 @@ export default function TripPlanner() {
         </div>
 
               {/* Map Container */}
-              <div className="flex-1 relative">
+              <div id="map-wrapper" className="flex-1 relative">
                 <div
                   ref={mapContainerRef}
                   className="w-full h-full rounded-none"

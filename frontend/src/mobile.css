@@ -116,10 +116,18 @@ html {
   width: 100% !important;
 }
 
-/* Ensure the map section is visible with a sensible height */
+/* Ensure the map section is visible with a sensible height - reduced for mobile */
 .relative > .w-full.h-full.rounded-none {
-  height: 60vh !important;
-  min-height: 360px !important;
+  height: 45vh !important;
+  min-height: 300px !important;
+  max-height: 50vh !important;
+}
+
+/* Align map horizontally with panel content on mobile */
+#map-wrapper {
+  padding-left: 1rem !important; /* match p-4 */
+  padding-right: 1rem !important;
+  box-sizing: border-box !important;
 }
 
 /* Slightly narrower default wide buttons */
