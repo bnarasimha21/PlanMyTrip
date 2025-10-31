@@ -1026,11 +1026,11 @@ export default function TripPlanner() {
 
   const doItinerary = async () => {
     // Temporarily allowing itinerary generation without login
-    // if (!user) {
-    //   setStatus('Please login to generate itineraries');
-    //   alert('Please login to generate itineraries.');
-    //   return;
-    // }
+    if (!user) {
+      setStatus('Please login to generate itineraries');
+      alert('Please login to generate itineraries.');
+      return;
+    }
     if (!API_BASE) {
       setStatus('Set VITE_API_BASE in frontend/.env');
       return;
