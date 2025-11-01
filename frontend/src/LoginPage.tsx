@@ -42,13 +42,15 @@ const LoginPage: React.FC = () => {
             <p className="text-slate-600 text-lg">Welcome back! Please sign in to continue.</p>
           </div>
 
-          <div className="space-y-4">
-            <GoogleLogin
-              onSuccess={handleLoginSuccess}
-              className="w-full"
-              text="Continue with Google"
-              variant="default"
-            />
+          <div className="space-y-4 flex justify-center">
+            <div className="w-full">
+              <GoogleLogin
+                onSuccess={handleLoginSuccess}
+                className="w-full"
+                text="Continue with Google"
+                variant="default"
+              />
+            </div>
           </div>
 
           <div className="mt-6 text-center">

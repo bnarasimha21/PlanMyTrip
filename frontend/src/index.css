@@ -70,15 +70,33 @@ body {
 }
 
 /* Google Login Button Styling */
+.google-login-wrapper {
+  display: flex !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
+
+.google-login-wrapper > div {
+  display: flex !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
+
 .google-login-wrapper iframe {
   font-size: 18px !important;
+  margin: 0 auto !important;
 }
 
 .google-login-wrapper div[role="button"] {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100% !important;
   font-size: 18px !important;
   font-weight: 600 !important;
   height: 52px !important;
   min-height: 52px !important;
+  margin: 0 auto !important;
 }
 
 .google-login-wrapper div[role="button"] span {

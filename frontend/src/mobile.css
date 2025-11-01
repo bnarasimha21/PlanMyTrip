@@ -307,9 +307,25 @@ html {
   border-radius: 0.5rem !important;
 }
 
-/* Google Login Button on Mobile */
+/* Google Login Button on Mobile - Center alignment */
 .google-login-wrapper {
-  width: 9rem !important;
+  display: flex !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
+
+.google-login-wrapper > div {
+  display: flex !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
+
+.google-login-wrapper iframe {
+  margin: 0 auto !important;
+}
+
+.google-login-wrapper div[role="button"] {
+  margin: 0 auto !important;
 }
 
 /* Header spacing adjustments */
