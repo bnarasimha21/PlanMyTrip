@@ -35,6 +35,7 @@ const POPUP_STYLES = `
   border-radius: 12px !important;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
   border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  max-width: 90vw !important;
 }
 
 .rich-popup .mapboxgl-popup-tip {
@@ -57,6 +58,48 @@ const POPUP_STYLES = `
 /* Make map labels larger and more readable */
 .mapboxgl-map .mapboxgl-ctrl-geocoder input {
   font-size: 16px !important;
+}
+
+/* Mobile-specific popup styles */
+@media (max-width: 767px) {
+  .rich-popup {
+    max-width: 280px !important;
+  }
+  
+  .rich-popup .mapboxgl-popup-content {
+    max-width: 280px !important;
+  }
+  
+  .rich-popup .popup-inner {
+    min-width: 240px !important;
+    max-width: 280px !important;
+  }
+  
+  .rich-popup .popup-header {
+    height: 80px !important;
+  }
+  
+  .rich-popup .popup-header img {
+    height: 80px !important;
+  }
+  
+  .rich-popup .popup-content {
+    padding: 0.75rem !important;
+  }
+  
+  .rich-popup h3 {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+  }
+  
+  .rich-popup p {
+    font-size: 0.75rem !important;
+  }
+  
+  .rich-popup button {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.8125rem !important;
+  }
 }
 </style>`;
 
@@ -462,6 +505,9 @@ export default function TripPlanner() {
       container.appendChild(label);
       // Create rich popup with enhanced content
       const createRichPopup = (place: Place) => {
+        // Detect mobile for responsive popup sizing
+        const isMobile = window.innerWidth <= 767;
+        
         const category = (place.category || '').toLowerCase();
         let categoryIcon = '📍';
         let categoryColor = '#6B7280';
@@ -478,18 +524,20 @@ export default function TripPlanner() {
           categoryColor = '#7C3AED';
         }
 
-        // Generate a simple, reliable placeholder image
+        // Generate a simple, reliable placeholder image with responsive sizing
         const gradientId = `grad${Math.random().toString(36).substring(7)}`;
-        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="280" height="128" viewBox="0 0 280 128">
+        const imageWidth = isMobile ? 240 : 280;
+        const imageHeight = isMobile ? 80 : 128;
+        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${imageWidth}" height="${imageHeight}" viewBox="0 0 ${imageWidth} ${imageHeight}">
           <defs>
             <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" style="stop-color:${categoryColor}" />
               <stop offset="100%" style="stop-color:${categoryColor}dd" />
             </linearGradient>
           </defs>
-          <rect width="280" height="128" fill="url(#${gradientId})" />
-          <circle cx="140" cy="64" r="30" fill="rgba(255,255,255,0.15)" />
-          <text x="140" y="80" text-anchor="middle" fill="white" font-size="32" font-family="system-ui">${categoryIcon}</text>
+          <rect width="${imageWidth}" height="${imageHeight}" fill="url(#${gradientId})" />
+          <circle cx="${imageWidth / 2}" cy="${imageHeight / 2}" r="${isMobile ? 20 : 30}" fill="rgba(255,255,255,0.15)" />
+          <text x="${imageWidth / 2}" y="${imageHeight / 2 + (isMobile ? 8 : 16)}" text-anchor="middle" fill="white" font-size="${isMobile ? 24 : 32}" font-family="system-ui">${categoryIcon}</text>
         </svg>`;
         
         // Try multiple encoding methods for better compatibility
@@ -509,26 +557,31 @@ export default function TripPlanner() {
         const rating = (4.0 + Math.random() * 1.0).toFixed(1);
         const reviews = Math.floor(50 + Math.random() * 500);
 
+        // Use already detected isMobile variable for responsive popup sizing
+        const popupMaxWidth = isMobile ? '280px' : '320px';
+        const popupMinWidth = isMobile ? '240px' : '280px';
+        const headerHeight = isMobile ? '80px' : '128px';
+        
         return new mapboxgl.Popup({ 
-          offset: 16,
+          offset: isMobile ? 12 : 16,
           className: 'rich-popup',
-          maxWidth: '320px'
+          maxWidth: popupMaxWidth
         }).setHTML(`
           ${POPUP_STYLES}
-          <div class="bg-white rounded-lg overflow-hidden shadow-xl border-0" style="min-width: 280px;">
+          <div class="popup-inner bg-white rounded-lg overflow-hidden shadow-xl border-0" style="min-width: ${popupMinWidth}; max-width: ${popupMaxWidth};">
             <!-- Image Header -->
-            <div class="relative h-32 overflow-hidden" style="background: linear-gradient(135deg, ${categoryColor}dd, ${categoryColor}aa);">
+            <div class="popup-header relative overflow-hidden" style="height: ${headerHeight}; background: linear-gradient(135deg, ${categoryColor}dd, ${categoryColor}aa);">
               <img 
                 src="${placeholderImage}" 
                 alt="${place.name}" 
                 class="w-full h-full object-cover"
-                style="display: block; max-width: 100%;"
+                style="display: block; max-width: 100%; height: ${headerHeight};"
                 onload="console.log('Image loaded successfully for: ${place.name}');"
                 onerror="console.log('Image failed to load for: ${place.name}'); this.style.display='none'; this.parentNode.querySelector('.fallback-icon').style.display='flex';"
               >
               <!-- Fallback icon if image fails -->
               <div class="fallback-icon absolute inset-0 flex items-center justify-center" style="display: none; background: linear-gradient(135deg, ${categoryColor}, ${categoryColor}cc);">
-                <span style="font-size: 48px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">${categoryIcon}</span>
+                <span style="font-size: ${isMobile ? '36px' : '48px'}; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">${categoryIcon}</span>
               </div>
               <div class="absolute top-2 right-2 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 text-xs font-medium" style="color: ${categoryColor};">
                 ${categoryIcon} ${place.category || 'Place'}
@@ -536,17 +589,17 @@ export default function TripPlanner() {
             </div>
             
             <!-- Content -->
-            <div class="p-4">
+            <div class="popup-content ${isMobile ? 'p-3' : 'p-4'}">
               <div class="flex items-start justify-between mb-2">
-                <h3 class="font-bold text-gray-900 text-lg leading-tight">${place.name}</h3>
+                <h3 class="font-bold text-gray-900 ${isMobile ? 'text-sm' : 'text-lg'} leading-tight">${place.name}</h3>
                 <div class="flex items-center gap-1 ml-2">
-                  <span class="text-yellow-500 text-sm">⭐</span>
-                  <span class="text-sm font-medium text-gray-700">${rating}</span>
+                  <span class="text-yellow-500 ${isMobile ? 'text-xs' : 'text-sm'}">⭐</span>
+                  <span class="${isMobile ? 'text-xs' : 'text-sm'} font-medium text-gray-700">${rating}</span>
                 </div>
               </div>
               
               ${place.neighborhood ? `
-                <p class="text-sm text-gray-600 mb-2 flex items-center gap-1">
+                <p class="${isMobile ? 'text-xs' : 'text-sm'} text-gray-600 mb-2 flex items-center gap-1">
                   <span class="text-gray-400">📍</span> ${place.neighborhood}
                 </p>
               ` : ''}
@@ -556,13 +609,13 @@ export default function TripPlanner() {
               </div>
               
               ${place.notes ? `
-                <p class="text-sm text-gray-700 mb-3 line-clamp-2">${place.notes}</p>
+                <p class="${isMobile ? 'text-xs' : 'text-sm'} text-gray-700 mb-3 line-clamp-2">${place.notes}</p>
               ` : ''}
               
               <!-- Action Buttons -->
               <div class="w-full">
                 <button onclick="getDirections('${place.latitude}', '${place.longitude}')" 
-                        class="w-full flex items-center justify-center gap-1 py-2 px-3 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors duration-200">
+                        class="w-full flex items-center justify-center gap-1 ${isMobile ? 'py-1.5 px-2.5' : 'py-2 px-3'} bg-blue-500 hover:bg-blue-600 text-white ${isMobile ? 'text-xs' : 'text-sm'} rounded-lg transition-colors duration-200">
                   <span>🧭</span> Get Directions
                 </button>
               </div>
@@ -1982,10 +2035,11 @@ export default function TripPlanner() {
               <div id="map-wrapper" className="flex-1 relative" style={{ overflow: 'visible', position: 'relative' }}>
                 <div
                   ref={mapContainerRef}
-                  className="w-full h-full rounded-none"
+                  className="w-full h-full rounded-xl"
                   style={{ 
                     background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
-                    minHeight: '400px' // Ensure minimum height
+                    minHeight: '400px', // Ensure minimum height
+                    overflow: 'hidden' // Ensure rounded corners work properly
                   }}
                 />
 
@@ -2087,7 +2141,7 @@ export default function TripPlanner() {
 
                 {/* Route Animation Button Overlay */}
                 {places.length >= 2 && (
-                  <div id="route-controls" className="absolute top-6 right-6 z-10 flex gap-2">
+                  <div id="route-controls" className="absolute top-6 right-16 z-10 flex gap-2">
                     <button 
                       onClick={isAnimating ? stopRouteAnimation : startRouteAnimation}
                       className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 transform hover:scale-110 shadow-lg backdrop-blur-sm ${

@@ -1,8 +1,24 @@
 /* Desktop-only touch-ups (>=768px). Keep default Tailwind layout. */
 
 /* Ensure the map fills the available column height on desktop */
-.relative > .w-full.h-full.rounded-none {
+#map-wrapper > .w-full.h-full.rounded-xl {
   height: 100% !important;
+  border-radius: 1rem !important; /* 16px rounded corners */
+  overflow: hidden !important; /* Ensure rounded corners work properly */
+}
+
+/* Ensure Mapbox canvas respects rounded corners on desktop */
+#map-wrapper .mapboxgl-canvas-container,
+#map-wrapper .mapboxgl-canvas {
+  border-radius: 1rem !important;
+  overflow: hidden !important;
+}
+
+/* Route controls positioning on desktop - move slightly to the left */
+@media (min-width: 768px) {
+  #route-controls {
+    right: 4rem !important; /* 64px - moved left from right-6 (24px) */
+  }
 }
 
 

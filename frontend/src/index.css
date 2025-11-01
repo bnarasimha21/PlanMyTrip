@@ -108,3 +108,15 @@ body {
   font-size: 18px !important;
   font-weight: 600 !important;
 }
+
+/* Map rounded corners styling */
+#map-wrapper .rounded-xl {
+  border-radius: 1rem !important; /* 16px rounded corners */
+}
+
+/* Ensure Mapbox canvas respects rounded corners */
+#map-wrapper .mapboxgl-canvas-container,
+#map-wrapper .mapboxgl-canvas {
+  border-radius: 1rem !important;
+  overflow: hidden !important;
+}

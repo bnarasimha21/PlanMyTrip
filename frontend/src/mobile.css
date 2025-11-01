@@ -130,11 +130,13 @@ html {
 }
 
 /* Ensure the map section is visible with a sensible height - reduced for mobile */
-#map-wrapper > .w-full.h-full.rounded-none {
+#map-wrapper > .w-full.h-full.rounded-xl {
   height: 45vh !important;
   min-height: 300px !important;
   max-height: 50vh !important;
   position: relative !important; /* Ensure map container is positioned */
+  border-radius: 1rem !important; /* 16px rounded corners */
+  overflow: hidden !important; /* Ensure rounded corners work properly */
 }
 
 /* Align map horizontally with panel content on mobile */
