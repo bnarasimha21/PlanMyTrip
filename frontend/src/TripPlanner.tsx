@@ -75,6 +75,7 @@ export default function TripPlanner() {
   const [isItineraryCollapsed, setIsItineraryCollapsed] = useState(true); // Collapsed by default on mobile
   const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'bot', message: string, timestamp: Date}>>([]);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+  const chatMessagesContainerRef = useRef<HTMLDivElement | null>(null);
   const [chatInput, setChatInput] = useState('');
   
   const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
@@ -1254,9 +1255,20 @@ export default function TripPlanner() {
 
   // Auto-scroll chatbot to bottom when new messages appear
   useEffect(() => {
-    if (chatMessagesEndRef.current) {
-      chatMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    // Always scroll to bottom when new messages are added
+    // Use requestAnimationFrame for better timing with DOM updates
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (chatMessagesContainerRef.current && chatMessagesEndRef.current) {
+          const container = chatMessagesContainerRef.current;
+          // Scroll to bottom smoothly
+          chatMessagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        } else if (chatMessagesEndRef.current) {
+          // Fallback: if container ref not set, use original behavior
+          chatMessagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      });
+    });
   }, [chatMessages]);
 
   // Voice input removed
@@ -1780,7 +1792,7 @@ export default function TripPlanner() {
                   </div>
 
                   {/* Chat Messages - Flexible Height */}
-                  <div className="bg-white/80 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-blue-200 relative chat-messages">
+                  <div ref={chatMessagesContainerRef} className="bg-white/80 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-blue-200 relative chat-messages">
                     {chatMessages.length === 0 ? (
                       <div className="text-center text-slate-500 py-8">
                         <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-sky-600 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -2114,7 +2126,7 @@ export default function TripPlanner() {
                     </div>
 
                     {/* Chat Messages - Flexible Height */}
-                    <div className="bg-white/80 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-blue-200 relative chat-messages">
+                    <div ref={chatMessagesContainerRef} className="bg-white/80 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-blue-200 relative chat-messages">
                       {chatMessages.length === 0 ? (
                         <div className="text-center text-slate-500 py-8">
                           <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-sky-600 rounded-full flex items-center justify-center mx-auto mb-3">
