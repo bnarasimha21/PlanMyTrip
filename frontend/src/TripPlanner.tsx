@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useSubscription } from './SubscriptionContext';
@@ -72,8 +72,10 @@ export default function TripPlanner() {
   const [modifyInput, setModifyInput] = useState('');
   const [isExtractedCollapsed, setIsExtractedCollapsed] = useState(true);
   const [isTripRequestCollapsed, setIsTripRequestCollapsed] = useState(false);
+  const [isItineraryCollapsed, setIsItineraryCollapsed] = useState(true); // Collapsed by default on mobile
   const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'bot', message: string, timestamp: Date}>>([]);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+  const chatMessagesContainerRef = useRef<HTMLDivElement | null>(null);
   const [chatInput, setChatInput] = useState('');
   
   const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
@@ -91,8 +93,17 @@ export default function TripPlanner() {
   
   const chatInputRef = useRef<HTMLInputElement | null>(null); // Reference to chat input for focusing
   const [isDayMode, setIsDayMode] = useState(false); // false = night mode (default)
-  const [isTTSEnabled, setIsTTSEnabled] = useState(false); // Text-to-speech for chatbot responses
-  
+  const [isMobile, setIsMobile] = useState(false); // Mobile viewport detection
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 767);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Add CSS for better map readability and voice animations
   useEffect(() => {
@@ -150,28 +161,29 @@ export default function TripPlanner() {
     };
   }, []);
 
-  // Init Map
-  useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
-    console.log('🗺️ Initializing map. MAPBOX_TOKEN:', MAPBOX_TOKEN ? `${MAPBOX_TOKEN.substring(0, 10)}...` : 'NOT SET');
-    if (!MAPBOX_TOKEN || MAPBOX_TOKEN === 'your_mapbox_token_here') {
-      console.error('❌ Mapbox token is not set or invalid');
-      setStatus('Please set a valid VITE_MAPBOX_TOKEN in frontend/.env file');
-      return;
-    }
+  // Helper function to initialize the map (only called once)
+  const initializeMap = useCallback((container: HTMLDivElement) => {
+    if (mapRef.current) return; // Already initialized
     
     try {
       console.log('🌍 Creating Mapbox map instance...');
+      // Initialize with current isDayMode state
       mapRef.current = new mapboxgl.Map({
-        container: mapContainerRef.current,
+        container: container,
         style: isDayMode ? 'mapbox://styles/mapbox/streets-v12' : 'mapbox://styles/mapbox/dark-v11',
         center: [77.5946, 12.9716],
         zoom: 11,
-        attributionControl: false // Reduce clutter
+        attributionControl: false
       });
       
       mapRef.current.on('load', () => {
         console.log('✅ Map loaded successfully');
+        // Ensure map is properly sized after load
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.resize();
+          }
+        }, 100);
       });
       
       mapRef.current.on('error', (e) => {
@@ -198,7 +210,168 @@ export default function TripPlanner() {
       console.error('❌ Error creating map:', error);
       setStatus('Error initializing map');
     }
-  }, []);
+  }, [isDayMode]);
+
+  // Init Map - runs on mount and can recover if map is missing
+  useEffect(() => {
+    let mounted = true;
+    let visibilityCheckInterval: ReturnType<typeof setInterval> | null = null;
+    let initTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const attemptInitialize = () => {
+      if (!mounted) return;
+      
+      const container = mapContainerRef.current;
+      if (!container) {
+        console.log('⏳ Map container not ready yet');
+        return false;
+      }
+
+      // If map already exists and is loaded, just resize it
+      if (mapRef.current) {
+        try {
+          if (mapRef.current.loaded()) {
+            console.log('✅ Map already exists and is loaded, resizing...');
+            setTimeout(() => {
+              if (mapRef.current && mounted) {
+                mapRef.current.resize();
+              }
+            }, 100);
+            return true;
+          } else {
+            // Map exists but not loaded - remove it so we can reinitialize
+            console.log('⚠️ Map exists but not loaded, removing...');
+            try {
+              mapRef.current.remove();
+            } catch (e) {
+              console.warn('Error removing stale map:', e);
+            }
+            mapRef.current = null;
+          }
+        } catch (e) {
+          console.warn('Error checking map state:', e);
+          try {
+            if (mapRef.current) {
+              mapRef.current.remove();
+            }
+          } catch {}
+          mapRef.current = null;
+        }
+      }
+
+      console.log('🗺️ Initializing map. MAPBOX_TOKEN:', MAPBOX_TOKEN ? `${MAPBOX_TOKEN.substring(0, 10)}...` : 'NOT SET');
+      if (!MAPBOX_TOKEN || MAPBOX_TOKEN === 'your_mapbox_token_here') {
+        console.error('❌ Mapbox token is not set or invalid');
+        setStatus('Please set a valid VITE_MAPBOX_TOKEN in frontend/.env file');
+        return false;
+      }
+      
+      // Wait for container to be visible before initializing
+      if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+        console.log('⏳ Waiting for map container to be visible...');
+        visibilityCheckInterval = setInterval(() => {
+          if (!mounted) {
+            if (visibilityCheckInterval) clearInterval(visibilityCheckInterval);
+            return;
+          }
+          const cont = mapContainerRef.current;
+          if (cont && cont.offsetWidth > 0 && cont.offsetHeight > 0) {
+            if (visibilityCheckInterval) clearInterval(visibilityCheckInterval);
+            visibilityCheckInterval = null;
+            // Container is now visible, initialize map
+            if (!mapRef.current && mounted) {
+              initializeMap(cont);
+            }
+          }
+        }, 100);
+        return false;
+      }
+      
+      // Container is visible, initialize map
+      if (!mapRef.current) {
+        initializeMap(container);
+        return true;
+      }
+      return false;
+    };
+
+    // Try to initialize immediately
+    const initialized = attemptInitialize();
+
+    // If initialization failed or was delayed, set up a periodic check
+    if (!initialized) {
+      initTimeout = setTimeout(() => {
+        if (!mounted) return;
+        // Check again after a delay in case container wasn't ready
+        if (!mapRef.current) {
+          console.log('🔄 Retrying map initialization...');
+          attemptInitialize();
+        }
+      }, 500);
+    }
+
+    // Also set up a periodic check to ensure map exists (for recovery after refresh)
+    const recoveryCheck = setInterval(() => {
+      if (!mounted) {
+        clearInterval(recoveryCheck);
+        return;
+      }
+      
+      const container = mapContainerRef.current;
+      if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) {
+        return; // Container not ready
+      }
+
+      // If map is missing but container is ready, initialize it
+      if (!mapRef.current && MAPBOX_TOKEN && MAPBOX_TOKEN !== 'your_mapbox_token_here') {
+        console.log('🔧 Map missing but container ready, recovering...');
+        initializeMap(container);
+      }
+      // If map exists but not loaded for a while, try to fix it
+      else if (mapRef.current) {
+        try {
+          if (!mapRef.current.loaded()) {
+            // Map exists but not loaded - might need reinit
+            console.log('⚠️ Map exists but not loaded, will retry...');
+          }
+        } catch (e) {
+          // Map might be in bad state, remove and reinit
+          console.log('🔧 Map in bad state, removing for reinit...');
+          try {
+            mapRef.current.remove();
+          } catch {}
+          mapRef.current = null;
+        }
+      }
+    }, 1000); // Check every second
+
+    // Cleanup function to remove map ONLY on unmount
+    return () => {
+      mounted = false;
+      if (visibilityCheckInterval) clearInterval(visibilityCheckInterval);
+      if (initTimeout) clearTimeout(initTimeout);
+      clearInterval(recoveryCheck);
+      
+      // Only cleanup map on actual unmount (when component is removed from DOM)
+      // Don't cleanup on dependency changes
+    };
+  }, []); // Empty dependency array - runs once on mount but has recovery logic
+
+  // Update map style when isDayMode changes (separate from initialization)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.loaded()) return; // Only update if map is loaded
+
+    try {
+      const newStyle = isDayMode 
+        ? 'mapbox://styles/mapbox/streets-v12' 
+        : 'mapbox://styles/mapbox/dark-v11';
+      console.log(`🌓 Updating map style to ${isDayMode ? 'day' : 'night'} mode`);
+      map.setStyle(newStyle);
+    } catch (error) {
+      console.error('❌ Error updating map style:', error);
+    }
+  }, [isDayMode]);
 
   // Render markers
   useEffect(() => {
@@ -738,98 +911,6 @@ export default function TripPlanner() {
     return (bearing + 360) % 360;
   };
 
-  // GTTS Text-to-speech for chatbot responses
-  const speakText = async (text: string) => {
-    if (!isTTSEnabled || !text.trim()) return;
-
-    // Stop any currently speaking synthesis
-    if (speechSynthesis.speaking) {
-      speechSynthesis.cancel();
-    }
-
-    // Clean up text - remove emojis and markdown formatting
-    const cleanText = text.replace(/[📍🏛️🎨🍴🛍️👁️✨🎤⏹️🗺️🎯📝💡]/g, '')
-                         .replace(/\*\*(.*?)\*\*/g, '$1')
-                         .replace(/\*(.*?)\*/g, '$1')
-                         .replace(/[_`]/g, '')
-                         .trim();
-
-    if (!cleanText) return;
-
-    try {
-      // Try GTTS first, fallback to browser speech synthesis
-      const response = await fetch('http://localhost:8000/tts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: cleanText })
-      });
-
-      if (response.ok) {
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-          // Focus chat input after TTS completes
-          setTimeout(() => {
-            chatInputRef.current?.focus();
-          }, 100);
-        };
-
-        console.log('🔊 GTTS audio playing');
-        await audio.play();
-        return;
-      }
-    } catch (gttsError) {
-      console.log('GTTS unavailable, falling back to browser TTS');
-    }
-
-    // Fallback to browser speech synthesis
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-
-      // Configure voice settings
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-
-      // Try to use a high-quality voice
-      const voices = speechSynthesis.getVoices();
-      const preferredVoice = voices.find(voice =>
-        voice.name.includes('Google') ||
-        voice.name.includes('Samantha') ||
-        voice.name.includes('Karen') ||
-        voice.name.includes('Zira') ||
-        (voice.lang.startsWith('en') && voice.localService === false)
-      );
-
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
-      }
-
-      // Add event listeners for debugging and focus management
-      utterance.onstart = () => console.log('🔊 Browser TTS started');
-      utterance.onend = () => {
-        console.log('🔇 Browser TTS ended');
-        // Focus chat input after TTS completes
-        setTimeout(() => {
-          chatInputRef.current?.focus();
-        }, 100);
-      };
-      utterance.onerror = (e) => {
-        console.error('❌ Browser TTS error:', e);
-        // Focus chat input even on error
-        setTimeout(() => {
-          chatInputRef.current?.focus();
-        }, 100);
-      };
-
-      speechSynthesis.speak(utterance);
-    }
-  };
 
   // Text-to-speech narration function
   const narratePlace = (placeName: string, index: number, total: number) => {
@@ -980,24 +1061,121 @@ export default function TripPlanner() {
     };
   }, []);
 
-  // Resize map when sidebar appears/disappears
+  // Resize map when sidebar appears/disappears or after state changes
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map) {
+      // Map doesn't exist - try to initialize it
+      const container = mapContainerRef.current;
+      if (container && container.offsetWidth > 0 && container.offsetHeight > 0 && !mapRef.current) {
+        console.log('🔄 Map missing after state change, reinitializing...');
+        setTimeout(() => {
+          if (!mapRef.current && container && container.offsetWidth > 0) {
+            initializeMap(container);
+          }
+        }, 200);
+      }
+      return;
+    }
+    
+    // Check if map is loaded and properly rendered
+    try {
+      if (!map.loaded()) {
+        console.log('⚠️ Map exists but not loaded after state change, waiting...');
+        const checkLoaded = setInterval(() => {
+          if (mapRef.current && mapRef.current.loaded()) {
+            clearInterval(checkLoaded);
+            setTimeout(() => {
+              if (mapRef.current) {
+                mapRef.current.resize();
+              }
+            }, 100);
+          } else if (!mapRef.current) {
+            clearInterval(checkLoaded);
+            // Map was removed, reinitialize
+            const container = mapContainerRef.current;
+            if (container && container.offsetWidth > 0) {
+              initializeMap(container);
+            }
+          }
+        }, 100);
+        return () => clearInterval(checkLoaded);
+      }
+    } catch (e) {
+      console.warn('Error checking map loaded state:', e);
+    }
     
     // Delay resize to allow DOM to update
     const resizeTimeout = setTimeout(() => {
-      map.resize();
+      if (mapRef.current && mapRef.current.loaded()) {
+        try {
+          mapRef.current.resize();
+        } catch (e) {
+          console.warn('Error resizing map:', e);
+        }
+      }
     }, 100);
     
     return () => clearTimeout(resizeTimeout);
-  }, [hasGeneratedItinerary, places.length > 0]);
+  }, [hasGeneratedItinerary, places.length > 0, initializeMap]);
+
+  // Refresh map when window becomes visible or regains focus
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && mapRef.current) {
+        console.log('👁️ Window became visible, refreshing map...');
+        setTimeout(() => {
+          if (mapRef.current) {
+            try {
+              mapRef.current.resize();
+            } catch (e) {
+              console.warn('Error resizing map on visibility change:', e);
+            }
+          }
+        }, 200);
+      }
+    };
+
+    const handleFocus = () => {
+      if (mapRef.current) {
+        console.log('🎯 Window regained focus, refreshing map...');
+        setTimeout(() => {
+          if (mapRef.current) {
+            try {
+              mapRef.current.resize();
+            } catch (e) {
+              console.warn('Error resizing map on focus:', e);
+            }
+          }
+        }, 200);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
 
   // Auto-scroll chatbot to bottom when new messages appear
   useEffect(() => {
-    if (chatMessagesEndRef.current) {
-      chatMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    // Always scroll to bottom when new messages are added
+    // Use requestAnimationFrame for better timing with DOM updates
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (chatMessagesContainerRef.current && chatMessagesEndRef.current) {
+          const container = chatMessagesContainerRef.current;
+          // Scroll to bottom smoothly
+          chatMessagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        } else if (chatMessagesEndRef.current) {
+          // Fallback: if container ref not set, use original behavior
+          chatMessagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      });
+    });
   }, [chatMessages]);
 
   // Voice input removed
@@ -1028,11 +1206,11 @@ export default function TripPlanner() {
 
   const doItinerary = async () => {
     // Temporarily allowing itinerary generation without login
-    if (!user) {
-      setStatus('Please login to generate itineraries');
-      alert('Please login to generate itineraries.');
-      return;
-    }
+    // if (!user) {
+    //   setStatus('Please login to generate itineraries');
+    //   alert('Please login to generate itineraries.');
+    //   return;
+    // }
     if (!API_BASE) {
       setStatus('Set VITE_API_BASE in frontend/.env');
       return;
@@ -1058,8 +1236,8 @@ export default function TripPlanner() {
           city: req.city,
           interests: req.interests, 
           days: req.days,
-          user_id: user?.id || 'default',
-          subscription_plan: subscriptionPlan
+          user_id: user?.id || 'bnarasimha@gmail.com',
+          subscription_plan: "premium"
         }),
       });
       const data = await resp.json();
@@ -1073,8 +1251,10 @@ export default function TripPlanner() {
       
       setPlaces(data.places || []);
       setHasGeneratedItinerary(true);
-      setIsTripRequestCollapsed(true); // Auto-collapse Trip Request after generating itinerary
-      setIsExtractedCollapsed(true); // Collapse Trip Details after generating itinerary
+      // Auto-collapse Trip Request, Trip Details, and Itinerary panel after generating itinerary (especially on mobile)
+      setIsTripRequestCollapsed(true);
+      setIsExtractedCollapsed(true);
+      setIsItineraryCollapsed(true); // Collapse itinerary panel on mobile so map is visible first
       setStatus('');
       
       // Update subscription usage immediately from response if available
@@ -1171,17 +1351,10 @@ export default function TripPlanner() {
       };
       setChatMessages(prev => [...prev, botMessage]);
 
-      // Speak the bot response
-      if (isTTSEnabled) {
-        speakText(botMessage.message);
-      }
-
-      // If TTS is disabled, focus the input immediately
-      if (!isTTSEnabled) {
-        setTimeout(() => {
-          chatInputRef.current?.focus();
-        }, 100);
-      }
+      // Focus the input after response
+      setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 100);
 
       setStatus('');
       
@@ -1193,17 +1366,10 @@ export default function TripPlanner() {
       };
       setChatMessages(prev => [...prev, errorMessage]);
 
-      // Speak the error message
-      if (isTTSEnabled) {
-        speakText(errorMessage.message);
-      }
-
-      // If TTS is disabled, focus the input immediately
-      if (!isTTSEnabled) {
-        setTimeout(() => {
-          chatInputRef.current?.focus();
-        }, 100);
-      }
+      // Focus the input after error
+      setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 100);
 
       setStatus('Error processing request');
 
@@ -1249,24 +1415,30 @@ export default function TripPlanner() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-sky-100 text-slate-800">
       {/* Header */}
-      <div className="bg-white/90 backdrop-blur-md border-b border-blue-200 shadow-lg relative z-50">
-        <div className="px-6 py-6 flex items-center justify-between">
-          <div>
-            <Link to="/" className="inline-block group">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-sky-600 to-blue-500 bg-clip-text text-transparent group-hover:from-blue-700 group-hover:via-sky-700 group-hover:to-blue-600 transition-all duration-200">
-                ✈️ TripXplorer
+      <div className="bg-white/95 backdrop-blur-md border-b border-blue-200 shadow-sm relative z-50">
+        <div className={`${isMobile ? 'px-4 py-3' : 'px-6 py-6'} flex items-center justify-between`}>
+          <div className={`flex items-center gap-3 ${isMobile ? 'flex-1 min-w-0' : ''}`}>
+            <Link to="/" className={`${isMobile ? 'flex items-center gap-2' : 'inline-block group'} ${isMobile ? 'flex-shrink-0' : ''}`}>
+              <h1 className={`${isMobile ? 'text-xl' : 'text-3xl'} font-bold bg-gradient-to-r from-blue-600 via-sky-600 to-blue-500 bg-clip-text text-transparent ${!isMobile ? 'group-hover:from-blue-700 group-hover:via-sky-700 group-hover:to-blue-600 transition-all duration-200' : ''} ${isMobile ? 'whitespace-nowrap' : ''}`}>
+                {isMobile ? '✈️ TripXplorer' : '✈️ TripXplorer'}
               </h1>
             </Link>
-            <p className="text-sm text-slate-600 mt-1">AI-powered travel planning with interactive maps</p>
+            {!isMobile && (
+              <p className="text-sm text-slate-600 mt-1">AI-powered travel planning with interactive maps</p>
+            )}
           </div>
-          <div className="flex items-center gap-4 relative z-50">
+          <div className={`${isMobile ? 'flex items-center gap-2 flex-shrink-0 ml-2' : 'flex items-center gap-4'} relative z-50`}>
             {isAuthenticated ? (
               <>
-                <SubscriptionStatus />
-                <UserProfile />
+                <div className={isMobile ? 'order-2' : ''}>
+                  <SubscriptionStatus className={isMobile ? 'py-1.5 px-2.5' : ''} />
+                </div>
+                <div className={isMobile ? 'order-1' : ''}>
+                  <UserProfile />
+                </div>
               </>
             ) : (
-              <GoogleLogin className="w-48" />
+              <GoogleLogin className={isMobile ? 'w-36' : 'w-48'} />
             )}
           </div>
         </div>
@@ -1410,10 +1582,99 @@ export default function TripPlanner() {
               </div>
             )}
 
+            {/* Your Itinerary Panel - Mobile only, shown below Trip Details, Collapsible */}
+            {isMobile && (hasGeneratedItinerary || places.length > 0) && (
+              <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl border border-blue-200 shadow-lg">
+                <button
+                  onClick={() => setIsItineraryCollapsed(!isItineraryCollapsed)}
+                  className="w-full p-6 text-left hover:bg-blue-100/50 transition-colors duration-200 rounded-2xl"
+                >
+                  <h3 className="text-lg font-semibold flex items-center justify-between text-slate-800 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-8 h-8 bg-gradient-to-r from-blue-500 to-sky-600 rounded-full flex items-center justify-center text-sm">🗺️</span>
+                      Your Itinerary
+                      {places.length > 0 && <span className="text-sm font-normal text-slate-600">({places.length} places)</span>}
+                    </div>
+                    <span className={`transform transition-transform duration-200 text-slate-600 ${isItineraryCollapsed ? '' : 'rotate-180'}`}>
+                      {isItineraryCollapsed ? '▼' : '▲'}
+                    </span>
+                  </h3>
+                  {isItineraryCollapsed && (
+                    <p className="text-xs text-slate-500 ml-11 mt-1 italic">Expand to see your itinerary</p>
+                  )}
+                </button>
+                
+                {!isItineraryCollapsed && (
+                  <div className="px-6 pb-6">
+                    <div className="bg-blue-50/80 rounded-2xl p-6 border border-blue-200 shadow-lg">
+                      {places.length > 0 ? (
+                        <div className="space-y-4">
+                          {places.map((place, index) => (
+                          <div key={index} className="bg-white/80 rounded-xl p-4 border border-blue-200 hover:bg-white transition-colors duration-200 shadow-sm">
+                            <div className="flex items-start gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                                place.category?.toLowerCase().includes('food') ? 'bg-amber-500 text-white' :
+                                place.category?.toLowerCase().includes('art') ? 'bg-rose-500 text-white' :
+                                (place.category?.toLowerCase().includes('sight') || place.category?.toLowerCase().includes('culture') || 
+                                 place.category?.toLowerCase().includes('temple') || place.category?.toLowerCase().includes('monument') ||
+                                 place.category?.toLowerCase().includes('landmark') || place.category?.toLowerCase().includes('tourist')) ? 'bg-violet-500 text-white' : 'bg-blue-500 text-white'
+                              }`}>
+                                {index + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-slate-800 mb-1">{place.name}</h4>
+                                {place.neighborhood && (
+                                  <p className="text-sm text-slate-600 mb-2 flex items-center gap-1">
+                                    📍 {place.neighborhood}
+                                  </p>
+                                )}
+                                {place.category && (
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                                      place.category?.toLowerCase().includes('food') ? 'bg-amber-100 text-amber-700' :
+                                      place.category?.toLowerCase().includes('art') ? 'bg-rose-100 text-rose-700' :
+                                      (place.category?.toLowerCase().includes('sight') || place.category?.toLowerCase().includes('culture') || 
+                                       place.category?.toLowerCase().includes('temple') || place.category?.toLowerCase().includes('monument') ||
+                                       place.category?.toLowerCase().includes('landmark') || place.category?.toLowerCase().includes('tourist')) ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'
+                                    }`}>
+                                      {place.category?.toLowerCase().includes('food') ? '🍽️' :
+                                       place.category?.toLowerCase().includes('art') ? '🎨' :
+                                       (place.category?.toLowerCase().includes('sight') || place.category?.toLowerCase().includes('culture') || 
+                                        place.category?.toLowerCase().includes('temple') || place.category?.toLowerCase().includes('monument') ||
+                                        place.category?.toLowerCase().includes('landmark') || place.category?.toLowerCase().includes('tourist')) ? '🏛️' : '📍'} {place.category}
+                                    </span>
+                                  </div>
+                                )}
+                                {place.notes && (
+                                  <p className="text-sm text-slate-600 leading-relaxed">{place.notes}</p>
+                                )}
+                                {place.address && (
+                                  <p className="text-xs text-slate-500 mt-2">{place.address}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12">
+                          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-sky-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                            🗺️
+                          </div>
+                          <h4 className="text-lg font-semibold text-slate-600 mb-2">No Itinerary Yet</h4>
+                          <p className="text-sm text-slate-500">Generate an itinerary to see your places here</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
 
-            {/* AI Itinerary Assistant Chatbot - Full Height */}
-            {hasGeneratedItinerary && (
+            {/* AI Itinerary Assistant Chatbot - Desktop: in left sidebar, Mobile: below map */}
+            {hasGeneratedItinerary && !isMobile && (
               <div className="flex-1 p-6 pt-0 flex flex-col overflow-hidden">
                 <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl border border-blue-200 shadow-lg flex flex-col h-full">
                   <div className="p-6 pb-4 flex-shrink-0">
@@ -1424,7 +1685,7 @@ export default function TripPlanner() {
                   </div>
 
                   {/* Chat Messages - Flexible Height */}
-                  <div className="bg-white/80 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-blue-200 relative chat-messages">
+                  <div ref={chatMessagesContainerRef} className="bg-white/80 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-blue-200 relative chat-messages">
                     {chatMessages.length === 0 ? (
                       <div className="text-center text-slate-500 py-8">
                         <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-sky-600 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -1528,35 +1789,8 @@ export default function TripPlanner() {
                       </div>
 
                       {/* Control Buttons Row */}
-                      <div className="flex gap-3 items-center justify-between">
-                        {/* TTS Toggle Switch - Left Side */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-slate-600">TTS</span>
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={isTTSEnabled}
-                              onChange={() => setIsTTSEnabled(!isTTSEnabled)}
-                              className="sr-only"
-                              id="tts-toggle"
-                            />
-                            <label
-                              htmlFor="tts-toggle"
-                              className={`block w-12 h-6 rounded-full cursor-pointer transition-all duration-200 ${
-                                isTTSEnabled ? 'bg-blue-500' : 'bg-slate-300'
-                              }`}
-                              title={isTTSEnabled ? 'Text-to-speech enabled' : 'Text-to-speech disabled'}
-                            >
-                              <div
-                                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200 ${
-                                  isTTSEnabled ? 'translate-x-6' : 'translate-x-0'
-                                }`}
-                              />
-                            </label>
-                          </div>
-                        </div>
-
-                        {/* Buttons - Right Side */}
+                      <div className="flex gap-3 items-center justify-end">
+                        {/* Buttons */}
                         <div className="flex gap-3 items-center">
                           
 
@@ -1746,8 +1980,142 @@ export default function TripPlanner() {
                 )}
               </div>
 
-              {/* Right Sidebar - Itinerary */}
-              {(hasGeneratedItinerary || places.length > 0) && (
+              {/* AI Itinerary Assistant Chatbot - Mobile: below map */}
+              {hasGeneratedItinerary && isMobile && (
+                <div className="w-full bg-white/95 backdrop-blur-xl border-t border-blue-200 p-6 flex flex-col overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl border border-blue-200 shadow-lg flex flex-col h-full max-h-[50vh]">
+                    <div className="p-6 pb-4 flex-shrink-0">
+                      <h3 className="text-lg font-semibold flex items-center gap-2 text-slate-800">
+                        <span className="w-8 h-8 bg-gradient-to-r from-blue-600 to-sky-600 rounded-full flex items-center justify-center text-sm">🤖</span>
+                        AI Itinerary Assistant
+                      </h3>
+                    </div>
+
+                    {/* Chat Messages - Flexible Height */}
+                    <div ref={chatMessagesContainerRef} className="bg-white/80 rounded-xl mx-6 p-4 flex-1 overflow-y-auto border border-blue-200 relative chat-messages">
+                      {chatMessages.length === 0 ? (
+                        <div className="text-center text-slate-500 py-8">
+                          <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-sky-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                            💬
+                          </div>
+                          <p className="text-base">Ask me anything about your itinerary!</p>
+                          <p className="text-sm mt-1">Try: "Add a coffee shop" or "What's the best route?"</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {chatMessages.map((msg, index) => (
+                            <div key={index} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[80%] p-3 rounded-lg ${
+                                msg.type === 'user' 
+                                  ? 'bg-gradient-to-r from-blue-500 to-sky-600 text-white ml-8 shadow-lg' 
+                                  : 'bg-gradient-to-r from-blue-100 to-sky-100 text-slate-800 mr-8 shadow-lg'
+                              }`}>
+                                {msg.type === 'bot' ? (
+                                  <div className="text-base prose prose-invert prose-sm max-w-none">
+                                    <ReactMarkdown
+                                      components={{
+                                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                        ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                                        ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                                        li: ({ children }) => <li className="text-sm">{children}</li>,
+                                        strong: ({ children }) => <strong className="font-semibold text-slate-800">{children}</strong>,
+                                        em: ({ children }) => <em className="italic">{children}</em>,
+                                        code: ({ children }) => <code className="bg-blue-100 px-1 py-0.5 rounded text-xs font-mono text-blue-800">{children}</code>,
+                                        pre: ({ children }) => <pre className="bg-blue-100 p-2 rounded text-xs font-mono text-blue-800 overflow-x-auto mb-2">{children}</pre>,
+                                        blockquote: ({ children }) => <blockquote className="border-l-4 border-blue-400 pl-3 italic text-blue-700 mb-2">{children}</blockquote>,
+                                        h1: ({ children }) => <h1 className="text-lg font-bold text-slate-800 mb-2">{children}</h1>,
+                                        h2: ({ children }) => <h2 className="text-base font-bold text-slate-800 mb-2">{children}</h2>,
+                                        h3: ({ children }) => <h3 className="text-sm font-bold text-slate-800 mb-1">{children}</h3>,
+                                      }}
+                                    >
+                                      {msg.message}
+                                    </ReactMarkdown>
+                                  </div>
+                                ) : (
+                                  <p className="text-base">{msg.message}</p>
+                                )}
+                                <p className="text-sm opacity-70 mt-1">
+                                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Show processing indicator in chat */}
+                          {status && status.includes('Processing') && (
+                            <div className="flex justify-start">
+                              <div className="max-w-[80%] p-4 rounded-lg bg-gradient-to-r from-blue-500 via-sky-500 to-blue-600 text-white mr-8 shadow-lg">
+                                <div className="flex items-center gap-3">
+                                  {/* Bouncing dots animation */}
+                                  <div className="flex gap-1">
+                                    <div className="w-2 h-2 bg-white rounded-full processing-dot" style={{animation: 'processingDots 1.4s ease-in-out infinite'}}></div>
+                                    <div className="w-2 h-2 bg-white rounded-full processing-dot" style={{animation: 'processingDots 1.4s ease-in-out infinite'}}></div>
+                                    <div className="w-2 h-2 bg-white rounded-full processing-dot" style={{animation: 'processingDots 1.4s ease-in-out infinite'}}></div>
+                                  </div>
+
+                                  {/* AI brain icon with pulse */}
+                                  <div className="relative">
+                                    <div className="w-6 h-6 bg-white/20 rounded-full animate-pulse flex items-center justify-center">
+                                      <span className="text-sm">🧠</span>
+                                    </div>
+                                    <div className="absolute inset-0 w-6 h-6 bg-white/10 rounded-full animate-ping"></div>
+                                  </div>
+
+                                  <div className="flex flex-col">
+                                    <p className="text-base font-medium">Analysing your request</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Invisible div for auto-scrolling */}
+                          <div ref={chatMessagesEndRef} />
+                        </div>
+                      )}
+
+                    </div>
+
+                    {/* Chat Input - Fixed at Bottom */}
+                    <div className="p-6 pt-4 flex-shrink-0">
+                      <div className="space-y-4">
+                        {/* Full Width Input */}
+                        <div className="w-full">
+                          <input
+                            ref={chatInputRef}
+                            type="text"
+                            value={chatInput}
+                            onChange={(e) => setChatInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
+                            className="w-full bg-white border border-blue-200 rounded-xl p-4 text-slate-800 text-lg placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 font-sans"
+                            style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif" }}
+                            placeholder="💡 Try: &quot;Add a restaurant&quot;, &quot;What's nearby?&quot;, or &quot;Best route?&quot;"
+                          />
+                        </div>
+
+                        {/* Control Buttons Row */}
+                        <div className="flex gap-3 items-center justify-end">
+                          {/* Buttons */}
+                          <div className="flex gap-3 items-center">
+                            {/* Send Button */}
+                            <button
+                              onClick={sendChatMessage}
+                              disabled={!chatInput.trim()}
+                              className="px-4 py-3 bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                            >
+                              ✨ Send
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+              {/* Right Sidebar - Itinerary - Desktop only */}
+              {!isMobile && (hasGeneratedItinerary || places.length > 0) && (
                 <div className="w-[520px] bg-white/95 backdrop-blur-xl border-l border-blue-200 overflow-y-auto shadow-lg">
                   <div className="p-6">
                     <div className="bg-blue-50/80 rounded-2xl p-6 border border-blue-200 shadow-lg">

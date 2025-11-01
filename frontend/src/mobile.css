@@ -1,4 +1,17 @@
 /* Mobile-only overrides (<=767px) */
+
+/* Prevent horizontal overflow */
+html, body {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+  width: 100% !important;
+}
+
+#root {
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+}
+
 /* Features: 2-column grid on phones, compact cards & fonts */
 #features-grid {
   display: grid !important;
@@ -162,6 +175,185 @@ html {
 .rounded-2xl { border-radius: 0.75rem !important; }
 .w-16 { width: 2.5rem !important; }
 .h-16 { height: 2.5rem !important; }
+
+/* Mobile Assistant Panel - below map - ensure proper spacing */
+#map-wrapper + div {
+  width: 100% !important;
+  margin-top: 0 !important;
+}
+
+/* Mobile Assistant max height adjustment for chat */
+[class*="max-h-\[50vh\]"] {
+  max-height: 50vh !important;
+  min-height: 300px !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Ensure chat messages area is scrollable on mobile */
+.chat-messages {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  min-height: 0 !important; /* Critical: allows flex child to shrink below content size for scrolling */
+  scrollbar-width: thin !important; /* Firefox */
+  scrollbar-color: rgba(59, 130, 246, 0.5) rgba(0, 0, 0, 0.05) !important; /* Firefox */
+  -ms-overflow-style: auto !important; /* IE/Edge */
+  will-change: scroll-position !important; /* Optimize for scrolling */
+  touch-action: pan-y !important; /* Enable vertical touch scrolling */
+}
+
+/* Show scrollbar on mobile so users know they can scroll */
+.chat-messages::-webkit-scrollbar {
+  display: block !important;
+  width: 6px !important;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-radius: 10px !important;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.5) !important;
+  border-radius: 10px !important;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.7) !important;
+}
+
+/* Fix parent containers to allow proper scrolling */
+.flex.flex-col.overflow-hidden .chat-messages {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  min-height: 0 !important; /* Important: allows flex child to shrink below content size */
+  position: relative !important;
+  max-height: 100% !important; /* Changed from height: 100% to allow content to expand */
+}
+
+/* Ensure the parent container with max-h-[50vh] properly constrains height */
+.bg-gradient-to-r.from-blue-50.to-sky-50.rounded-2xl.border.border-blue-200.shadow-lg.flex.flex-col.h-full {
+  height: auto !important;
+  max-height: 50vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 300px !important;
+  overflow: hidden !important; /* Prevent parent from scrolling */
+}
+
+/* Ensure the outer container allows proper layout */
+.w-full.bg-white\/95.backdrop-blur-xl.border-t.border-blue-200.p-6.flex.flex-col.overflow-hidden {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+/* Ensure chat messages container maintains scrollability after content updates */
+.chat-messages > div {
+  min-height: min-content !important;
+}
+
+/* Force recalculation of scroll container after updates */
+.chat-messages:after {
+  content: '';
+  display: block;
+  height: 0;
+  clear: both;
+}
+
+/* Header Mobile Improvements */
+.bg-white\/95.backdrop-blur-md {
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+
+/* Header Logo on Mobile */
+.text-xl.font-bold {
+  font-size: 1.25rem !important;
+  line-height: 1.5rem !important;
+}
+
+/* Header User Profile Compact on Mobile */
+.relative.flex.items-center.gap-2 {
+  gap: 0.5rem !important;
+}
+
+/* Subscription Status Compact on Mobile */
+.bg-gradient-to-r.from-blue-50.to-sky-50.rounded-xl {
+  padding: 0.375rem 0.625rem !important;
+  border-radius: 0.5rem !important;
+}
+
+/* Google Login Button on Mobile */
+.google-login-wrapper {
+  width: 9rem !important;
+}
+
+/* Header spacing adjustments */
+.px-4.py-3 {
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+
+/* Ensure header elements don't overflow */
+.flex.items-center.justify-between {
+  gap: 0.5rem !important;
+  overflow: hidden !important;
+}
+
+/* User profile text truncation */
+.text-sm.truncate {
+  max-width: 80px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* Subscription badge compact */
+.px-1\.5.py-0\.5 {
+  padding-left: 0.375rem !important;
+  padding-right: 0.375rem !important;
+  padding-top: 0.125rem !important;
+  padding-bottom: 0.125rem !important;
+}
+
+/* Preserve Get Details and Generate Itinerary button styling - keep original compact size */
+/* Override mobile padding for action buttons in Trip Request panel */
+.flex.gap-3 button.py-3.px-4,
+.flex.gap-3 button.bg-gradient-to-r,
+button.bg-gradient-to-r.from-blue-600.px-4,
+button.bg-gradient-to-r.from-sky-600.px-4 {
+  background-image: linear-gradient(to right, var(--tw-gradient-stops)) !important;
+  padding-top: 0.5rem !important; /* Slightly bigger vertical padding */
+  padding-bottom: 0.5rem !important; /* Slightly bigger vertical padding */
+  padding-left: 0.75rem !important; /* Slightly bigger horizontal padding */
+  padding-right: 0.75rem !important; /* Slightly bigger horizontal padding */
+  font-size: 0.875rem !important; /* text-sm - slightly bigger font */
+  min-height: auto !important;
+  height: auto !important;
+  line-height: 1.375rem !important; /* Better line height */
+}
+
+/* Prevent zoom on input focus - iOS Safari requirement: font-size must be >= 16px */
+/* Must use 16px (not rem/em) to prevent iOS Safari zoom on focus */
+textarea,
+input[type="text"],
+input[type="email"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+input[type="password"],
+textarea.text-xl,
+input.text-xl,
+input.text-lg {
+  font-size: 16px !important;
+  -webkit-text-size-adjust: 100% !important;
+}
 
 
 

@@ -66,28 +66,47 @@ const UserProfile: React.FC<UserProfileProps> = ({
     }, 100);
   };
 
+  // Detect mobile viewport
+  const [isMobile, setIsMobile] = React.useState<boolean>(typeof window !== 'undefined' ? window.innerWidth <= 767 : false);
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 767);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   return (
     <div ref={dropdownRef} className={`relative ${className}`}>
       <button
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors duration-200"
+        className={`flex items-center ${isMobile ? 'gap-2 p-1.5' : 'gap-3 p-2'} rounded-lg hover:bg-blue-50 transition-colors duration-200`}
       >
         <img
           src={user.picture || '/default-avatar.png'}
           alt={user.name}
-          className="w-8 h-8 rounded-full border-2 border-white/20"
+          className={`${isMobile ? 'w-8 h-8' : 'w-8 h-8'} rounded-full border-2 ${isMobile ? 'border-blue-200' : 'border-white/20'}`}
           onError={(e) => {
             const target = e.target as HTMLImageElement;
             target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=6366f1&color=fff&size=32`;
           }}
         />
-        <div className="text-left">
-          <div className="text-base font-semibold text-blue-600">{user.name}</div>
-          <div className="text-sm text-slate-600">{user.email}</div>
-        </div>
+        {!isMobile && (
+          <div className="text-left">
+            <div className="text-base font-semibold text-blue-600">{user.name}</div>
+            <div className="text-sm text-slate-600">{user.email}</div>
+          </div>
+        )}
+        {isMobile && (
+          <div className="text-left">
+            <div className="text-sm font-semibold text-blue-600 truncate max-w-[80px]">{user.name}</div>
+          </div>
+        )}
         {showDropdown && (
           <svg
-            className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+            className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400 transition-transform duration-200 ${
               isDropdownOpen ? 'rotate-180' : ''
             }`}
             fill="none"
@@ -100,7 +119,7 @@ const UserProfile: React.FC<UserProfileProps> = ({
       </button>
 
       {showDropdown && isDropdownOpen && (
-        <div className="absolute -right-8 mt-2 w-64 sm:w-72 max-w-[calc(100vw-4rem)] bg-white/95 backdrop-blur-sm rounded-xl border border-blue-200 shadow-xl z-[100]">
+        <div className={`absolute ${isMobile ? 'right-0' : '-right-8'} mt-2 ${isMobile ? 'w-56' : 'w-64 sm:w-72'} max-w-[calc(100vw-2rem)] bg-white/95 backdrop-blur-sm rounded-xl border border-blue-200 shadow-xl z-[100]`}>
           <div className="p-4 border-b border-blue-200">
             <div className="flex items-center gap-3">
               <img
