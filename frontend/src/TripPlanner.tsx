@@ -1510,24 +1510,30 @@ export default function TripPlanner() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-sky-100 text-slate-800">
       {/* Header */}
-      <div className="bg-white/90 backdrop-blur-md border-b border-blue-200 shadow-lg relative z-50">
-        <div className="px-6 py-6 flex items-center justify-between">
-          <div>
-            <Link to="/" className="inline-block group">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-sky-600 to-blue-500 bg-clip-text text-transparent group-hover:from-blue-700 group-hover:via-sky-700 group-hover:to-blue-600 transition-all duration-200">
-                ✈️ TripXplorer
+      <div className="bg-white/95 backdrop-blur-md border-b border-blue-200 shadow-sm relative z-50">
+        <div className={`${isMobile ? 'px-4 py-3' : 'px-6 py-6'} flex items-center justify-between`}>
+          <div className={`flex items-center gap-3 ${isMobile ? 'flex-1 min-w-0' : ''}`}>
+            <Link to="/" className={`${isMobile ? 'flex items-center gap-2' : 'inline-block group'} ${isMobile ? 'flex-shrink-0' : ''}`}>
+              <h1 className={`${isMobile ? 'text-xl' : 'text-3xl'} font-bold bg-gradient-to-r from-blue-600 via-sky-600 to-blue-500 bg-clip-text text-transparent ${!isMobile ? 'group-hover:from-blue-700 group-hover:via-sky-700 group-hover:to-blue-600 transition-all duration-200' : ''} ${isMobile ? 'whitespace-nowrap' : ''}`}>
+                {isMobile ? '✈️ TripXplorer' : '✈️ TripXplorer'}
               </h1>
             </Link>
-            <p className="text-sm text-slate-600 mt-1">AI-powered travel planning with interactive maps</p>
+            {!isMobile && (
+              <p className="text-sm text-slate-600 mt-1">AI-powered travel planning with interactive maps</p>
+            )}
           </div>
-          <div className="flex items-center gap-4 relative z-50">
+          <div className={`${isMobile ? 'flex items-center gap-2 flex-shrink-0 ml-2' : 'flex items-center gap-4'} relative z-50`}>
             {isAuthenticated ? (
               <>
-                <SubscriptionStatus />
-                <UserProfile />
+                <div className={isMobile ? 'order-2' : ''}>
+                  <SubscriptionStatus className={isMobile ? 'py-1.5 px-2.5' : ''} />
+                </div>
+                <div className={isMobile ? 'order-1' : ''}>
+                  <UserProfile />
+                </div>
               </>
             ) : (
-              <GoogleLogin className="w-48" />
+              <GoogleLogin className={isMobile ? 'w-36' : 'w-48'} />
             )}
           </div>
         </div>
