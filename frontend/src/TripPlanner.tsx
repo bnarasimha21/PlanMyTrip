@@ -1180,6 +1180,35 @@ export default function TripPlanner() {
     });
   }, [chatMessages]);
 
+  // Keep focus on chat input after bot responds and scroll it into view
+  useEffect(() => {
+    // Check if the last message is from bot
+    if (chatMessages.length > 0 && chatMessages[chatMessages.length - 1].type === 'bot') {
+      // Scroll input into view and focus after bot responds - use multiple timeouts to ensure DOM is updated
+      const focusTimeout = setTimeout(() => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (chatInputRef.current) {
+              // Scroll the input into view first
+              chatInputRef.current.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center',
+                inline: 'nearest'
+              });
+              
+              // Then focus it
+              setTimeout(() => {
+                chatInputRef.current?.focus();
+              }, 100);
+            }
+          });
+        });
+      }, 400);
+      
+      return () => clearTimeout(focusTimeout);
+    }
+  }, [chatMessages]);
+
   // Voice input removed
 
   // No direct DOM listeners needed - React onClick is working
@@ -1412,12 +1441,24 @@ export default function TripPlanner() {
       };
       setChatMessages(prev => [...prev, botMessage]);
 
-      // Focus the input after response
-      setTimeout(() => {
-        chatInputRef.current?.focus();
-      }, 100);
-
       setStatus('');
+      
+      // Scroll input into view and focus after response - use longer timeout to ensure state updates complete
+      setTimeout(() => {
+        if (chatInputRef.current) {
+          // Scroll the input into view first
+          chatInputRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'nearest'
+          });
+          
+          // Then focus it
+          setTimeout(() => {
+            chatInputRef.current?.focus();
+          }, 100);
+        }
+      }, 400);
       
     } catch (error) {
       const errorMessage = { 
@@ -1427,12 +1468,24 @@ export default function TripPlanner() {
       };
       setChatMessages(prev => [...prev, errorMessage]);
 
-      // Focus the input after error
-      setTimeout(() => {
-        chatInputRef.current?.focus();
-      }, 100);
-
       setStatus('Error processing request');
+
+      // Scroll input into view and focus after error - use longer timeout to ensure state updates complete
+      setTimeout(() => {
+        if (chatInputRef.current) {
+          // Scroll the input into view first
+          chatInputRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'nearest'
+          });
+          
+          // Then focus it
+          setTimeout(() => {
+            chatInputRef.current?.focus();
+          }, 100);
+        }
+      }, 400);
 
     }
   };
@@ -1926,7 +1979,7 @@ export default function TripPlanner() {
         </div>
 
               {/* Map Container */}
-              <div id="map-wrapper" className="flex-1 relative">
+              <div id="map-wrapper" className="flex-1 relative" style={{ overflow: 'visible', position: 'relative' }}>
                 <div
                   ref={mapContainerRef}
                   className="w-full h-full rounded-none"
@@ -2034,33 +2087,32 @@ export default function TripPlanner() {
 
                 {/* Route Animation Button Overlay */}
                 {places.length >= 2 && (
-                  <div id="route-controls" className="absolute top-6 right-16 z-10 flex gap-3">
+                  <div id="route-controls" className="absolute top-6 right-6 z-10 flex gap-2">
                     <button 
                       onClick={isAnimating ? stopRouteAnimation : startRouteAnimation}
-                      className={`py-3 px-6 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg backdrop-blur-sm ${
+                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 transform hover:scale-110 shadow-lg backdrop-blur-sm ${
                         isAnimating 
                           ? 'bg-orange-500/90 hover:bg-orange-600/90 text-white' 
                           : 'bg-blue-600/90 hover:bg-blue-700/90 text-white'
                       }`}
                       disabled={places.length < 2}
+                      title={isAnimating ? 'Stop Route' : 'Trace Route'}
+                      style={{ padding: 0, minWidth: '36px', minHeight: '36px' }}
                     >
-                      {isAnimating ? (
-                        <>🛑 Stop Route</>
-                      ) : (
-                        <>🚗 Trace Route</>
-                      )}
+                      <span style={{ fontSize: '18px', lineHeight: 1 }}>{isAnimating ? '🛑' : '🚗'}</span>
                     </button>
                     
                     <button 
                       onClick={() => setIsNarrationEnabled(!isNarrationEnabled)}
-                      className={`py-3 px-4 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg backdrop-blur-sm ${
+                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 transform hover:scale-110 shadow-lg backdrop-blur-sm ${
                         isNarrationEnabled 
                           ? 'bg-green-600/90 hover:bg-green-700/90 text-white' 
                           : 'bg-gray-600/90 hover:bg-gray-700/90 text-white'
                       }`}
                       title={isNarrationEnabled ? 'Disable Voice Narration' : 'Enable Voice Narration'}
+                      style={{ padding: 0, minWidth: '36px', minHeight: '36px' }}
                     >
-                      {isNarrationEnabled ? '🔊' : '🔇'}
+                      <span style={{ fontSize: '18px', lineHeight: 1 }}>{isNarrationEnabled ? '🔊' : '🔇'}</span>
                     </button>
                   </div>
                 )}
