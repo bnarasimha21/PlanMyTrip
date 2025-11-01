@@ -15,7 +15,21 @@ const UserProfile: React.FC<UserProfileProps> = ({
   const { user, logout } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [dropdownTop, setDropdownTop] = useState<number>(0);
   const [isAdmin, setIsAdmin] = useState(false);
+  
+  // Detect mobile viewport - must be defined before useEffects that use it
+  const [isMobile, setIsMobile] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth <= 767 : false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 767);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const fetchRole = async () => {
@@ -31,6 +45,14 @@ const UserProfile: React.FC<UserProfileProps> = ({
     };
     fetchRole();
   }, [user]);
+
+  // Calculate dropdown position on mobile when it opens
+  useEffect(() => {
+    if (isDropdownOpen && isMobile && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownTop(rect.bottom + 8);
+    }
+  }, [isDropdownOpen, isMobile]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -66,21 +88,10 @@ const UserProfile: React.FC<UserProfileProps> = ({
     }, 100);
   };
 
-  // Detect mobile viewport
-  const [isMobile, setIsMobile] = React.useState<boolean>(typeof window !== 'undefined' ? window.innerWidth <= 767 : false);
-
-  React.useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 767);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
   return (
-    <div ref={dropdownRef} className={`relative ${className}`}>
+    <div ref={dropdownRef} className={`relative ${className} ${isDropdownOpen && isMobile ? 'dropdown-open-mobile' : ''}`} style={{ zIndex: isDropdownOpen && isMobile ? 9999 : 'auto' }}>
       <button
+        ref={buttonRef}
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
         className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
       >
@@ -100,7 +111,13 @@ const UserProfile: React.FC<UserProfileProps> = ({
       </button>
 
       {showDropdown && isDropdownOpen && (
-        <div className={`absolute ${isMobile ? 'right-0' : 'right-0'} mt-2 ${isMobile ? 'w-56' : 'w-64'} max-w-[calc(100vw-2rem)] bg-white/95 backdrop-blur-sm rounded-xl border border-blue-200 shadow-xl z-[100]`}>
+        <div 
+          className={`${isMobile ? 'fixed' : 'absolute'} ${isMobile ? 'right-4' : 'right-0'} ${isMobile ? '' : 'mt-2'} ${isMobile ? 'w-56' : 'w-64'} max-w-[calc(100vw-2rem)] bg-white/95 backdrop-blur-sm rounded-xl border border-blue-200 shadow-xl`} 
+          style={{ 
+            zIndex: 9999,
+            ...(isMobile && { top: `${dropdownTop}px` })
+          }}
+        >
           <div className="p-3 space-y-2">
             {isAdmin && (
               <Link
