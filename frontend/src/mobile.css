@@ -490,11 +490,56 @@ button[data-testid="get-details-button"] {
   padding: 0.75rem 1rem !important;
 }
 
-/* On mobile, force full width when Generate Itinerary is not visible */
+/* On mobile, adjust button widths when both buttons are visible */
 @media (max-width: 767px) {
-  button#get-details-button {
+  /* Container for buttons - ensure it doesn't overflow */
+  .flex.gap-3 {
+    max-width: 100% !important;
     width: 100% !important;
-    min-width: 100% !important;
+    overflow: hidden !important;
+    flex-wrap: nowrap !important;
+  }
+  
+  /* Get Details button - adjust width based on context */
+  button#get-details-button {
+    flex: 0 0 auto !important;
+    max-width: 50% !important;
+    min-width: 0 !important;
+  }
+  
+  /* When Get Details is alone, it takes full width */
+  .flex.gap-3 > button#get-details-button:only-child {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Generate Itinerary button - ensure it fits */
+  .flex.gap-3 > button:not(#get-details-button) {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: 50% !important;
+    padding: 8px 12px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    min-height: 36px !important;
+    white-space: nowrap !important;
+  }
+  
+  /* Ensure Get Details button also uses smaller font on mobile */
+  .flex.gap-3 > button#get-details-button {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    min-height: 36px !important;
+    padding: 8px 14px !important;
+  }
+  
+  /* When both buttons are present, each takes 50% minus gap */
+  .flex.gap-3 > button#get-details-button + button {
+    width: calc(50% - 6px) !important;
+  }
+  
+  .flex.gap-3 > button#get-details-button:not(:only-child) {
+    width: calc(50% - 6px) !important;
   }
 }
 

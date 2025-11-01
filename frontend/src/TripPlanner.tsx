@@ -1491,10 +1491,10 @@ export default function TripPlanner() {
           <div className={`${isMobile ? 'flex items-center gap-2 flex-shrink-0 ml-2' : 'flex items-center gap-4'} relative z-50`}>
             {isAuthenticated ? (
               <>
-                <div className={isMobile ? 'order-2' : ''}>
+                <div className={isMobile ? 'order-1' : ''}>
                   <SubscriptionStatus className={isMobile ? 'py-1.5 px-2.5' : ''} />
                 </div>
-                <div className={isMobile ? 'order-1' : ''}>
+                <div className={isMobile ? 'order-2' : ''}>
                   <UserProfile />
                 </div>
               </>
@@ -1560,16 +1560,16 @@ export default function TripPlanner() {
                       className={`${isExtracting ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'} transition-all duration-200`}
                       style={{
                         width: extracted ? '50%' : '100%',
-                        padding: '16px',
-                        minHeight: '48px',
+                        padding: '8px 14px',
+                        minHeight: '36px',
                         background: isExtracting 
                           ? 'linear-gradient(to right, #64748b, #64748b)' 
                           : 'linear-gradient(to right, #2563eb, #0ea5e9)',
                         color: 'white',
-                        fontSize: '18px',
-                        fontWeight: 'bold',
+                        fontSize: '14px',
+                        fontWeight: '600',
                         border: 'none',
-                        borderRadius: '12px',
+                        borderRadius: '8px',
                         zIndex: 999999,
                         position: 'relative',
                         touchAction: 'manipulation',
@@ -1580,7 +1580,7 @@ export default function TripPlanner() {
                         flexShrink: 0
                       } as React.CSSProperties}
                     >
-                      🔍 Get Details
+                      Get Details
                     </button>
                     {extracted && (
                       <button 
@@ -1590,7 +1590,7 @@ export default function TripPlanner() {
                           e.stopPropagation();
                           doItinerary();
                         }}
-                        className="flex-1 py-3 px-4 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-md"
+                        className="flex-1 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md"
                         style={{
                           touchAction: 'manipulation',
                           WebkitTapHighlightColor: 'transparent',
@@ -1599,11 +1599,14 @@ export default function TripPlanner() {
                           WebkitUserSelect: 'none',
                           position: 'relative',
                           zIndex: 10,
-                          minHeight: '48px',
-                          flexShrink: 0
+                          minHeight: '36px',
+                          flexShrink: 0,
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          padding: '8px 14px'
                         }}
                       >
-                        🗺️ Generate Itinerary
+                        Generate Itinerary
                       </button>
                     )}
                   </div>
