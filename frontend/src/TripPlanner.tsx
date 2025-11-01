@@ -1326,8 +1326,8 @@ export default function TripPlanner() {
           city: req.city,
           interests: req.interests, 
           days: req.days,
-          user_id: user?.id || 'bnarasimha21@gmail.com',
-          subscription_plan: 'premium'
+          user_id: user?.id || 'default',
+          subscription_plan: subscriptionPlan
         }),
       });
       const data = await resp.json();
