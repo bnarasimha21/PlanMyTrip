@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useSubscription } from './SubscriptionContext';
-import GoogleLogin from './GoogleLogin';
 import UserProfile from './UserProfile';
 import SetupGuide from './SetupGuide';
 import PaymentModal from './PaymentModal';
@@ -11,6 +10,7 @@ import SubscriptionStatus from './SubscriptionStatus';
 const HomePage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const { isSubscribed, subscriptionPlan } = useSubscription();
+  const navigate = useNavigate();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{
     name: string;
@@ -71,10 +71,12 @@ const HomePage: React.FC = () => {
                   {isAuthenticated ? (
                     <UserProfile />
                   ) : (
-                    <GoogleLogin 
-                      className="w-48"
-                      onSuccess={() => console.log('Login successful')}
-                    />
+                    <button
+                      onClick={() => navigate('/login')}
+                      className="bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white px-6 py-2 rounded-lg font-medium text-base transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    >
+                      Login
+                    </button>
                   )}
                 </>
               )}

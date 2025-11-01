@@ -1,10 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useSubscription } from './SubscriptionContext';
 import UserProfile from './UserProfile';
 import SubscriptionStatus from './SubscriptionStatus';
-import GoogleLogin from './GoogleLogin';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import ReactMarkdown from 'react-markdown';
@@ -64,6 +63,7 @@ const POPUP_STYLES = `
 export default function TripPlanner() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { subscriptionPlan, usage, limits, checkUsage, refreshUsage } = useSubscription();
+  const navigate = useNavigate();
   const [tripRequest, setTripRequest] = useState('Plan a 1-day must see places in Hanoi');
   const [extracted, setExtracted] = useState<{ city: string; interests: string; days: number; destination?: string; destination_type?: string } | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
@@ -1438,7 +1438,12 @@ export default function TripPlanner() {
                 </div>
               </>
             ) : (
-              <GoogleLogin className={isMobile ? 'w-36' : 'w-48'} />
+              <button
+                onClick={() => navigate('/login')}
+                className={`bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white ${isMobile ? 'px-4 py-2 text-sm' : 'px-6 py-2 text-base'} rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl`}
+              >
+                Login
+              </button>
             )}
           </div>
         </div>
