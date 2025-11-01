@@ -7,6 +7,7 @@ import HomePage from './HomePage';
 import TripPlanner from './TripPlanner';
 import Settings from './Settings';
 import AdminDashboard from './AdminDashboard';
+import LoginPage from './LoginPage';
 
 // You'll need to get this from Google Cloud Console
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -23,6 +24,7 @@ function App() {
           <Router>
             <Routes>
               <Route path="/" element={<HomePage />} />
+              <Route path="/login" element={<LoginPage />} />
               <Route path="/app" element={<TripPlanner />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin" element={<AdminDashboard />} />

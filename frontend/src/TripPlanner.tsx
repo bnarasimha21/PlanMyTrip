@@ -1,10 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useSubscription } from './SubscriptionContext';
 import UserProfile from './UserProfile';
 import SubscriptionStatus from './SubscriptionStatus';
-import GoogleLogin from './GoogleLogin';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import ReactMarkdown from 'react-markdown';
@@ -64,14 +63,16 @@ const POPUP_STYLES = `
 export default function TripPlanner() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { subscriptionPlan, usage, limits, checkUsage, refreshUsage } = useSubscription();
+  const navigate = useNavigate();
   const [tripRequest, setTripRequest] = useState('Plan a 1-day must see places in Hanoi');
   const [extracted, setExtracted] = useState<{ city: string; interests: string; days: number; destination?: string; destination_type?: string } | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [status, setStatus] = useState('');
+  const [isExtracting, setIsExtracting] = useState(false);
   
   const [modifyInput, setModifyInput] = useState('');
   const [isExtractedCollapsed, setIsExtractedCollapsed] = useState(true);
-  const [isTripRequestCollapsed, setIsTripRequestCollapsed] = useState(false);
+  const [isTripRequestCollapsed, setIsTripRequestCollapsed] = useState(false); // Always open by default so button is visible
   const [isItineraryCollapsed, setIsItineraryCollapsed] = useState(true); // Collapsed by default on mobile
   const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'bot', message: string, timestamp: Date}>>([]);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
@@ -92,6 +93,7 @@ export default function TripPlanner() {
   const narratedPlacesRef = useRef<Set<string>>(new Set());
   
   const chatInputRef = useRef<HTMLInputElement | null>(null); // Reference to chat input for focusing
+  const getDetailsButtonRef = useRef<HTMLButtonElement>(null);
   const [isDayMode, setIsDayMode] = useState(false); // false = night mode (default)
   const [isMobile, setIsMobile] = useState(false); // Mobile viewport detection
 
@@ -1180,27 +1182,86 @@ export default function TripPlanner() {
 
   // Voice input removed
 
+  // No direct DOM listeners needed - React onClick is working
+
   const doExtract = async () => {
+    // Prevent multiple simultaneous calls
+    if (isExtracting) {
+      return;
+    }
+    
+    if (!tripRequest || tripRequest.trim() === '') {
+      alert('Please enter a trip request first');
+      return;
+    }
+    
+    setIsExtracting(true);
     setStatus('Extracting details...');
+    
     try {
-      const resp = await fetch(`${API_BASE}/extract`, {
+      // Get API_BASE from environment or fallback
+      const API_BASE = (import.meta as any).env.VITE_API_BASE || window.location.origin;
+      const url = `${API_BASE}/extract`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
+      const resp = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: tripRequest }),
+        signal: controller.signal,
+        mode: 'cors'
       });
+      
+      clearTimeout(timeoutId);
+      
+      if (!resp.ok) {
+        const errorText = await resp.text().catch(() => `HTTP ${resp.status}`);
+        throw new Error(`Server error: ${errorText || resp.statusText}`);
+      }
+      
       const data = await resp.json();
+      
+      if (data.error) {
+        setStatus('');
+        setIsExtracting(false);
+        alert(`Error: ${data.error}`);
+        return;
+      }
+      
+      if (!data.destination && !data.city) {
+        throw new Error('Invalid response: missing destination/city');
+      }
+      
       const normalized = {
-        city: data.destination || data.city,
-        interests: data.interests,
-        days: data.days,
-        destination: data.destination || data.city,
+        city: data.destination || data.city || 'Unknown',
+        interests: data.interests || 'General',
+        days: data.days || 1,
+        destination: data.destination || data.city || 'Unknown',
         destination_type: data.destination_type || 'city'
       };
+      
       setExtracted(normalized);
       setIsExtractedCollapsed(false);
       setStatus('');
+      setIsExtracting(false);
+      
     } catch (error) {
-      setStatus('Error extracting details');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setStatus('');
+      setIsExtracting(false);
+      
+      // Only show user-friendly error messages
+      if (errorMessage.includes('Mixed Content Error') || 
+          errorMessage.includes('AbortError') ||
+          errorMessage.includes('Failed to fetch') ||
+          errorMessage.includes('Load failed')) {
+        alert(`Error: ${errorMessage}`);
+      } else {
+        alert(`Error extracting details: ${errorMessage}`);
+      }
+      
+      console.error('Error in doExtract:', error);
     }
   };
 
@@ -1236,8 +1297,8 @@ export default function TripPlanner() {
           city: req.city,
           interests: req.interests, 
           days: req.days,
-          user_id: user?.id || 'bnarasimha@gmail.com',
-          subscription_plan: "premium"
+          user_id: user?.id || 'default',
+          subscription_plan: subscriptionPlan
         }),
       });
       const data = await resp.json();
@@ -1438,7 +1499,12 @@ export default function TripPlanner() {
                 </div>
               </>
             ) : (
-              <GoogleLogin className={isMobile ? 'w-36' : 'w-48'} />
+              <button
+                onClick={() => navigate('/login')}
+                className={`bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white ${isMobile ? 'px-4 py-2 text-sm' : 'px-6 py-2 text-base'} rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl`}
+              >
+                Login
+              </button>
             )}
           </div>
         </div>
@@ -1446,13 +1512,15 @@ export default function TripPlanner() {
 
             <div className="flex h-[calc(100vh-100px)]">
               {/* Sidebar */}
-              <div className="w-[520px] bg-white/95 backdrop-blur-xl border-r border-blue-200 overflow-hidden flex flex-col shadow-lg">
-          <div className="p-6 space-y-6 flex-shrink-0">
+              <div className="w-[520px] bg-white/95 backdrop-blur-xl border-r border-blue-200 overflow-y-auto flex flex-col shadow-lg" style={{ position: 'relative', zIndex: 1, pointerEvents: 'auto' }}>
+          <div className="p-6 space-y-6" style={{ position: 'relative', zIndex: 2, pointerEvents: 'auto' }}>
             {/* Trip Request Section */}
-            <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl border border-blue-200 shadow-lg">
+            <div className="bg-gradient-to-r from-blue-50 to-sky-50 rounded-2xl border border-blue-200 shadow-lg" style={{ position: 'relative', zIndex: 3, overflow: 'visible' }}>
               <button
+                type="button"
                 onClick={() => setIsTripRequestCollapsed(!isTripRequestCollapsed)}
                 className="w-full p-6 text-left hover:bg-blue-100/50 transition-colors duration-200 rounded-2xl"
+                style={{ position: 'relative', zIndex: 4, pointerEvents: 'auto' }}
               >
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold flex items-center gap-2 text-slate-800">
@@ -1469,7 +1537,7 @@ export default function TripPlanner() {
               </button>
               
               {!isTripRequestCollapsed && (
-                <div className="px-6 pb-6">
+                <div className="px-6 pb-6" style={{ position: 'relative', zIndex: 5, pointerEvents: 'auto' }}>
                   <textarea
                     value={tripRequest}
                     onChange={(e) => setTripRequest(e.target.value)}
@@ -1480,19 +1548,60 @@ export default function TripPlanner() {
                   />
                   
                   {/* Action Buttons */}
-                  <div className="flex gap-3">
+                  <div className="flex gap-3" style={{ position: 'relative', zIndex: 100, pointerEvents: 'auto', marginTop: '8px' }}>
                     <button 
-                      onClick={doExtract}
-                      className={`py-3 px-4 bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-blue-500/25 ${
-                        extracted ? 'flex-1' : 'w-full'
-                      }`}
+                      ref={getDetailsButtonRef}
+                      type="button"
+                      id="get-details-button"
+                      onClick={() => {
+                        doExtract();
+                      }}
+                      disabled={isExtracting}
+                      className={`${isExtracting ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'} transition-all duration-200`}
+                      style={{
+                        width: extracted ? '50%' : '100%',
+                        padding: '16px',
+                        minHeight: '48px',
+                        background: isExtracting 
+                          ? 'linear-gradient(to right, #64748b, #64748b)' 
+                          : 'linear-gradient(to right, #2563eb, #0ea5e9)',
+                        color: 'white',
+                        fontSize: '18px',
+                        fontWeight: 'bold',
+                        border: 'none',
+                        borderRadius: '12px',
+                        zIndex: 999999,
+                        position: 'relative',
+                        touchAction: 'manipulation',
+                        display: 'block',
+                        boxSizing: 'border-box',
+                        margin: 0,
+                        cursor: isExtracting ? 'not-allowed' : 'pointer',
+                        flexShrink: 0
+                      } as React.CSSProperties}
                     >
                       🔍 Get Details
                     </button>
                     {extracted && (
                       <button 
-                        onClick={doItinerary}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          doItinerary();
+                        }}
                         className="flex-1 py-3 px-4 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-md"
+                        style={{
+                          touchAction: 'manipulation',
+                          WebkitTapHighlightColor: 'transparent',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          WebkitUserSelect: 'none',
+                          position: 'relative',
+                          zIndex: 10,
+                          minHeight: '48px',
+                          flexShrink: 0
+                        }}
                       >
                         🗺️ Generate Itinerary
                       </button>
@@ -1561,12 +1670,12 @@ export default function TripPlanner() {
                   <div className="flex-1">
                     <h4 className="text-sm font-semibold text-red-800 mb-1">Subscription Limit Reached</h4>
                     <p className="text-sm text-red-700 mb-3">{subscriptionError}</p>
-                    <Link
-                      to="/"
+                    <button
+                      onClick={() => navigate('/settings')}
                       className="inline-block bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 transform hover:scale-105"
                     >
                       Upgrade to Premium
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -2189,6 +2298,7 @@ export default function TripPlanner() {
                 </div>
               )}
       </div>
+
     </div>
   );
 }

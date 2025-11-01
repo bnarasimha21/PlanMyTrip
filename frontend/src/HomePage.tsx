@@ -1,45 +1,15 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useSubscription } from './SubscriptionContext';
-import GoogleLogin from './GoogleLogin';
 import UserProfile from './UserProfile';
 import SetupGuide from './SetupGuide';
-import PaymentModal from './PaymentModal';
 import SubscriptionStatus from './SubscriptionStatus';
 
 const HomePage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const { isSubscribed, subscriptionPlan } = useSubscription();
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<{
-    name: string;
-    price: number;
-    features: string[];
-  } | null>(null);
-
-  const premiumPlan = {
-    name: 'Premium',
-    price: 1.00,
-    features: [
-      'Unlimited trip plans',
-      'Advanced AI personalization',
-      'Route optimization',
-      'Multi-day itineraries (up to 30 days)',
-      'Advanced voice assistant',
-      'Priority support',
-      'Export to PDF/Calendar',
-      'Offline maps',
-      'Weather integration',
-      'Budget tracking',
-      'Group trip planning'
-    ]
-  };
-
-  const handleUpgradeClick = () => {
-    setSelectedPlan(premiumPlan);
-    setShowPaymentModal(true);
-  };
+  const navigate = useNavigate();
 
   const handleLearnMoreClick = () => {
     const featuresSection = document.getElementById('features');
@@ -71,10 +41,12 @@ const HomePage: React.FC = () => {
                   {isAuthenticated ? (
                     <UserProfile />
                   ) : (
-                    <GoogleLogin 
-                      className="w-48"
-                      onSuccess={() => console.log('Login successful')}
-                    />
+                    <button
+                      onClick={() => navigate('/login')}
+                      className="bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white px-6 py-2 rounded-lg font-medium text-base transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    >
+                      Login
+                    </button>
                   )}
                 </>
               )}
@@ -326,7 +298,7 @@ const HomePage: React.FC = () => {
               </ul>
 
               <button 
-                onClick={handleUpgradeClick}
+                onClick={() => navigate('/settings')}
                 className="w-full bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg"
               >
                 {isSubscribed ? 'Manage Subscription' : 'Upgrade to Premium'}
@@ -399,17 +371,6 @@ const HomePage: React.FC = () => {
       {/* Setup Guide */}
       <SetupGuide />
 
-      {/* Payment Modal */}
-      {selectedPlan && (
-        <PaymentModal
-          isOpen={showPaymentModal}
-          onClose={() => {
-            setShowPaymentModal(false);
-            setSelectedPlan(null);
-          }}
-          plan={selectedPlan}
-        />
-      )}
     </div>
   );
 };

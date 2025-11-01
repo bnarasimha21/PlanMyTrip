@@ -15,22 +15,85 @@ const UserProfile: React.FC<UserProfileProps> = ({
   const { user, logout } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [dropdownTop, setDropdownTop] = useState<number>(0);
   const [isAdmin, setIsAdmin] = useState(false);
+  
+  // Detect mobile viewport - must be defined before useEffects that use it
+  const [isMobile, setIsMobile] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth <= 767 : false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 767);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const fetchRole = async () => {
       if (!user) return;
-      try {
-        const resp = await fetch(`${API_BASE}/user/${user.id}`);
-        const data = await resp.json();
-        if (data.success && data.user) {
-          const adminFlag = data.user.IsAdmin === 1 || data.user.isAdmin === 1 || data.user.role === 'admin';
-          setIsAdmin(!!adminFlag);
+      
+      // Retry mechanism for mobile reliability
+      const fetchWithRetry = async (retries = 3): Promise<void> => {
+        try {
+          const resp = await fetch(`${API_BASE}/user/${user.id}`);
+          if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status}`);
+          }
+          const data = await resp.json();
+          
+          if (data.success && data.user) {
+            // Check multiple variations: 1, true, 'admin' role
+            const adminFlag = 
+              data.user.IsAdmin === 1 || 
+              data.user.IsAdmin === true || 
+              data.user.isAdmin === 1 || 
+              data.user.isAdmin === true ||
+              data.user.IsAdmin === '1' ||
+              data.user.isAdmin === '1' ||
+              data.user.role === 'admin' ||
+              data.user.role === 'Admin' ||
+              data.user.Role === 'admin' ||
+              data.user.Role === 'Admin';
+            setIsAdmin(!!adminFlag);
+            return; // Success, no retry needed
+          }
+          throw new Error('Invalid response format');
+        } catch (error) {
+          if (retries > 0) {
+            // Retry after a short delay
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return fetchWithRetry(retries - 1);
+          }
+          // All retries failed, default to false
+          setIsAdmin(false);
         }
-      } catch {}
+      };
+      
+      fetchWithRetry();
     };
+    
     fetchRole();
   }, [user]);
+
+  // Calculate dropdown position on mobile when it opens
+  useEffect(() => {
+    if (isDropdownOpen && isMobile && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownTop(rect.bottom + 8);
+    }
+  }, [isDropdownOpen, isMobile]);
+
+  // Debug log when dropdown opens
+  useEffect(() => {
+    if (isDropdownOpen) {
+      console.log('🔍 Dropdown rendering - isAdmin:', isAdmin, 'user:', user);
+      console.log('🔍 Mobile:', isMobile);
+      console.log('🔍 Dropdown open:', isDropdownOpen);
+    }
+  }, [isDropdownOpen, isAdmin, user, isMobile]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -66,47 +129,17 @@ const UserProfile: React.FC<UserProfileProps> = ({
     }, 100);
   };
 
-  // Detect mobile viewport
-  const [isMobile, setIsMobile] = React.useState<boolean>(typeof window !== 'undefined' ? window.innerWidth <= 767 : false);
-
-  React.useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 767);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
   return (
-    <div ref={dropdownRef} className={`relative ${className}`}>
+    <div ref={dropdownRef} className={`relative ${className} ${isDropdownOpen && isMobile ? 'dropdown-open-mobile' : ''}`} style={{ zIndex: isDropdownOpen && isMobile ? 9999 : 'auto' }}>
       <button
+        ref={buttonRef}
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className={`flex items-center ${isMobile ? 'gap-2 p-1.5' : 'gap-3 p-2'} rounded-lg hover:bg-blue-50 transition-colors duration-200`}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
       >
-        <img
-          src={user.picture || '/default-avatar.png'}
-          alt={user.name}
-          className={`${isMobile ? 'w-8 h-8' : 'w-8 h-8'} rounded-full border-2 ${isMobile ? 'border-blue-200' : 'border-white/20'}`}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=6366f1&color=fff&size=32`;
-          }}
-        />
-        {!isMobile && (
-          <div className="text-left">
-            <div className="text-base font-semibold text-blue-600">{user.name}</div>
-            <div className="text-sm text-slate-600">{user.email}</div>
-          </div>
-        )}
-        {isMobile && (
-          <div className="text-left">
-            <div className="text-sm font-semibold text-blue-600 truncate max-w-[80px]">{user.name}</div>
-          </div>
-        )}
+        <span className={`${isMobile ? 'text-sm' : 'text-base'}`}>{user.name}</span>
         {showDropdown && (
           <svg
-            className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400 transition-transform duration-200 ${
+            className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} transition-transform duration-200 ${
               isDropdownOpen ? 'rotate-180' : ''
             }`}
             fill="none"
@@ -119,36 +152,34 @@ const UserProfile: React.FC<UserProfileProps> = ({
       </button>
 
       {showDropdown && isDropdownOpen && (
-        <div className={`absolute ${isMobile ? 'right-0' : '-right-8'} mt-2 ${isMobile ? 'w-56' : 'w-64 sm:w-72'} max-w-[calc(100vw-2rem)] bg-white/95 backdrop-blur-sm rounded-xl border border-blue-200 shadow-xl z-[100]`}>
-          <div className="p-4 border-b border-blue-200">
-            <div className="flex items-center gap-3">
-              <img
-                src={user.picture || '/default-avatar.png'}
-                alt={user.name}
-                className="w-12 h-12 rounded-full border-2 border-blue-200"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0ea5e9&color=fff&size=48`;
-                }}
-              />
-              <div>
-                <div className="text-lg font-semibold text-slate-800">{user.name}</div>
-                <div className="text-base text-slate-600">{user.email}</div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="p-3 space-y-2">
+        <div 
+          className={`${isMobile ? 'fixed' : 'absolute'} ${isMobile ? 'right-4' : 'right-0'} ${isMobile ? '' : 'mt-2'} ${isMobile ? 'w-56' : 'w-64'} max-w-[calc(100vw-2rem)] bg-white/95 backdrop-blur-sm rounded-xl border border-blue-200 shadow-xl`} 
+          style={{ 
+            zIndex: 9999,
+            ...(isMobile && { top: `${dropdownTop}px` })
+          }}
+        >
+          <div className="p-3 space-y-2" style={{ overflow: 'visible', minHeight: 'auto' }}>
             {isAdmin && (
               <Link
                 to="/admin"
                 onClick={() => setIsDropdownOpen(false)}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors duration-200 text-base font-medium cursor-pointer"
+                style={{ 
+                  display: 'flex', 
+                  visibility: 'visible', 
+                  opacity: 1,
+                  order: isMobile ? -1 : 0,
+                  minHeight: '44px',
+                  width: '100%',
+                  position: 'relative',
+                  zIndex: 11
+                }}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm8.485 3a8.485 8.485 0 11-16.97 0 8.485 8.485 0 0116.97 0z" />
                 </svg>
-                Dashboard
+                <span>Dashboard</span>
               </Link>
             )}
             <Link

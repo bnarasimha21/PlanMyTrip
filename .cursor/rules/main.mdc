@@ -1,0 +1,5 @@
+Dont make any changes that break existing functionalities. 
+If it breaks, ask for confirmation 
+---
+alwaysApply: true
+---
