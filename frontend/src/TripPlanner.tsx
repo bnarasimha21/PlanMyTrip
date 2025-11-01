@@ -93,7 +93,6 @@ export default function TripPlanner() {
   
   const chatInputRef = useRef<HTMLInputElement | null>(null); // Reference to chat input for focusing
   const [isDayMode, setIsDayMode] = useState(false); // false = night mode (default)
-  const [isTTSEnabled, setIsTTSEnabled] = useState(false); // Text-to-speech for chatbot responses
   const [isMobile, setIsMobile] = useState(false); // Mobile viewport detection
 
   // Detect mobile viewport
@@ -912,98 +911,6 @@ export default function TripPlanner() {
     return (bearing + 360) % 360;
   };
 
-  // GTTS Text-to-speech for chatbot responses
-  const speakText = async (text: string) => {
-    if (!isTTSEnabled || !text.trim()) return;
-
-    // Stop any currently speaking synthesis
-    if (speechSynthesis.speaking) {
-      speechSynthesis.cancel();
-    }
-
-    // Clean up text - remove emojis and markdown formatting
-    const cleanText = text.replace(/[📍🏛️🎨🍴🛍️👁️✨🎤⏹️🗺️🎯📝💡]/g, '')
-                         .replace(/\*\*(.*?)\*\*/g, '$1')
-                         .replace(/\*(.*?)\*/g, '$1')
-                         .replace(/[_`]/g, '')
-                         .trim();
-
-    if (!cleanText) return;
-
-    try {
-      // Try GTTS first, fallback to browser speech synthesis
-      const response = await fetch('http://localhost:8000/tts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: cleanText })
-      });
-
-      if (response.ok) {
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-          // Focus chat input after TTS completes
-          setTimeout(() => {
-            chatInputRef.current?.focus();
-          }, 100);
-        };
-
-        console.log('🔊 GTTS audio playing');
-        await audio.play();
-        return;
-      }
-    } catch (gttsError) {
-      console.log('GTTS unavailable, falling back to browser TTS');
-    }
-
-    // Fallback to browser speech synthesis
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-
-      // Configure voice settings
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-
-      // Try to use a high-quality voice
-      const voices = speechSynthesis.getVoices();
-      const preferredVoice = voices.find(voice =>
-        voice.name.includes('Google') ||
-        voice.name.includes('Samantha') ||
-        voice.name.includes('Karen') ||
-        voice.name.includes('Zira') ||
-        (voice.lang.startsWith('en') && voice.localService === false)
-      );
-
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
-      }
-
-      // Add event listeners for debugging and focus management
-      utterance.onstart = () => console.log('🔊 Browser TTS started');
-      utterance.onend = () => {
-        console.log('🔇 Browser TTS ended');
-        // Focus chat input after TTS completes
-        setTimeout(() => {
-          chatInputRef.current?.focus();
-        }, 100);
-      };
-      utterance.onerror = (e) => {
-        console.error('❌ Browser TTS error:', e);
-        // Focus chat input even on error
-        setTimeout(() => {
-          chatInputRef.current?.focus();
-        }, 100);
-      };
-
-      speechSynthesis.speak(utterance);
-    }
-  };
 
   // Text-to-speech narration function
   const narratePlace = (placeName: string, index: number, total: number) => {
@@ -1444,17 +1351,10 @@ export default function TripPlanner() {
       };
       setChatMessages(prev => [...prev, botMessage]);
 
-      // Speak the bot response
-      if (isTTSEnabled) {
-        speakText(botMessage.message);
-      }
-
-      // If TTS is disabled, focus the input immediately
-      if (!isTTSEnabled) {
-        setTimeout(() => {
-          chatInputRef.current?.focus();
-        }, 100);
-      }
+      // Focus the input after response
+      setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 100);
 
       setStatus('');
       
@@ -1466,17 +1366,10 @@ export default function TripPlanner() {
       };
       setChatMessages(prev => [...prev, errorMessage]);
 
-      // Speak the error message
-      if (isTTSEnabled) {
-        speakText(errorMessage.message);
-      }
-
-      // If TTS is disabled, focus the input immediately
-      if (!isTTSEnabled) {
-        setTimeout(() => {
-          chatInputRef.current?.focus();
-        }, 100);
-      }
+      // Focus the input after error
+      setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 100);
 
       setStatus('Error processing request');
 
@@ -1896,35 +1789,8 @@ export default function TripPlanner() {
                       </div>
 
                       {/* Control Buttons Row */}
-                      <div className="flex gap-3 items-center justify-between">
-                        {/* TTS Toggle Switch - Left Side */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-slate-600">TTS</span>
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={isTTSEnabled}
-                              onChange={() => setIsTTSEnabled(!isTTSEnabled)}
-                              className="sr-only"
-                              id="tts-toggle"
-                            />
-                            <label
-                              htmlFor="tts-toggle"
-                              className={`block w-12 h-6 rounded-full cursor-pointer transition-all duration-200 ${
-                                isTTSEnabled ? 'bg-blue-500' : 'bg-slate-300'
-                              }`}
-                              title={isTTSEnabled ? 'Text-to-speech enabled' : 'Text-to-speech disabled'}
-                            >
-                              <div
-                                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200 ${
-                                  isTTSEnabled ? 'translate-x-6' : 'translate-x-0'
-                                }`}
-                              />
-                            </label>
-                          </div>
-                        </div>
-
-                        {/* Buttons - Right Side */}
+                      <div className="flex gap-3 items-center justify-end">
+                        {/* Buttons */}
                         <div className="flex gap-3 items-center">
                           
 
@@ -2228,35 +2094,8 @@ export default function TripPlanner() {
                         </div>
 
                         {/* Control Buttons Row */}
-                        <div className="flex gap-3 items-center justify-between">
-                          {/* TTS Toggle Switch - Left Side */}
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-slate-600">TTS</span>
-                            <div className="relative">
-                              <input
-                                type="checkbox"
-                                checked={isTTSEnabled}
-                                onChange={() => setIsTTSEnabled(!isTTSEnabled)}
-                                className="sr-only"
-                                id="tts-toggle-mobile"
-                              />
-                              <label
-                                htmlFor="tts-toggle-mobile"
-                                className={`block w-12 h-6 rounded-full cursor-pointer transition-all duration-200 ${
-                                  isTTSEnabled ? 'bg-blue-500' : 'bg-slate-300'
-                                }`}
-                                title={isTTSEnabled ? 'Text-to-speech enabled' : 'Text-to-speech disabled'}
-                              >
-                                <div
-                                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200 ${
-                                    isTTSEnabled ? 'translate-x-6' : 'translate-x-0'
-                                  }`}
-                                />
-                              </label>
-                            </div>
-                          </div>
-
-                          {/* Buttons - Right Side */}
+                        <div className="flex gap-3 items-center justify-end">
+                          {/* Buttons */}
                           <div className="flex gap-3 items-center">
                             {/* Send Button */}
                             <button
