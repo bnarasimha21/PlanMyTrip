@@ -327,6 +327,66 @@ nav .dropdown-open-mobile {
   overflow: visible !important;
 }
 
+/* Ensure dropdown menu items are visible on mobile - especially Dashboard item */
+.fixed.right-4.w-56.bg-white\/95,
+.absolute.right-0.w-64.bg-white\/95 {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Ensure dropdown menu content container doesn't clip items */
+.bg-white\/95.backdrop-blur-sm.rounded-xl.border.border-blue-200.shadow-xl > div {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+/* Ensure all dropdown menu items are visible and clickable on mobile */
+.bg-white\/95.backdrop-blur-sm.rounded-xl.border.border-blue-200.shadow-xl a,
+.bg-white\/95.backdrop-blur-sm.rounded-xl.border.border-blue-200.shadow-xl button {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  min-height: 44px !important; /* iOS recommended touch target size */
+}
+
+/* Specifically ensure Dashboard item (emerald color) is visible on mobile */
+.text-emerald-600,
+a.text-emerald-600 {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: #059669 !important; /* emerald-600 */
+  -webkit-text-fill-color: #059669 !important;
+}
+
+/* Ensure dropdown menu spacing container doesn't clip items */
+.p-3.space-y-2 {
+  overflow: visible !important;
+  max-height: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.5rem !important;
+}
+
+/* Ensure first child (Dashboard) is always visible on mobile */
+.p-3.space-y-2 > *:first-child {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin-top: 0 !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* Ensure dropdown items are not hidden by parent containers */
+.fixed.right-4.w-56,
+.absolute.right-0.w-64 {
+  position: fixed !important;
+  overflow: visible !important;
+  max-height: none !important;
+  contain: none !important;
+}
+
 /* User profile text truncation */
 .text-sm.truncate {
   max-width: 80px !important;
@@ -363,6 +423,111 @@ button.bg-gradient-to-r.from-sky-600.px-4 {
   cursor: pointer !important; /* Ensure pointer cursor */
   user-select: none !important; /* Prevent text selection on touch */
   -webkit-user-select: none !important;
+  pointer-events: auto !important; /* Ensure buttons are clickable */
+  position: relative !important;
+  z-index: 1000 !important; /* High z-index to ensure button is on top */
+  -webkit-touch-callout: none !important;
+  -webkit-user-drag: none !important;
+}
+
+/* Ensure Get Details button container doesn't block clicks */
+.bg-gradient-to-r.from-blue-50.to-sky-50.rounded-2xl.border.border-blue-200.shadow-lg {
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 3 !important;
+}
+
+/* Ensure parent containers don't block button clicks */
+.w-\[520px\].bg-white\/95.backdrop-blur-xl {
+  pointer-events: auto !important;
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.w-\[520px\].bg-white\/95.backdrop-blur-xl > div {
+  pointer-events: auto !important;
+  overflow: visible !important;
+}
+
+/* Ensure Get Details button section is fully clickable on mobile */
+.bg-gradient-to-r.from-blue-50.to-sky-50.rounded-2xl.border.border-blue-200.shadow-lg > div.px-6.pb-6 {
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 100 !important;
+  overflow: visible !important;
+}
+
+/* Ensure Get Details button container is clickable */
+.flex.gap-3 {
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 1000 !important;
+}
+
+/* Ensure Get Details button itself is fully interactive - MOBILE FIX */
+button[type="button"].bg-gradient-to-r.from-blue-600,
+button#get-details-button,
+#get-details-button,
+[data-testid="get-details-button"],
+button[data-testid="get-details-button"] {
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 99999 !important;
+  -webkit-touch-callout: none !important;
+  touch-action: manipulation !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  min-height: 48px !important;
+  -webkit-appearance: button !important;
+  -moz-appearance: button !important;
+  appearance: button !important;
+  background: linear-gradient(to right, #2563eb, #0ea5e9) !important;
+  color: white !important;
+  border: 2px solid rgba(59, 130, 246, 0.5) !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 0.75rem 1rem !important;
+}
+
+/* On mobile, force full width when Generate Itinerary is not visible */
+@media (max-width: 767px) {
+  button#get-details-button {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+}
+
+/* Force button to be clickable - override any blocking styles */
+#get-details-button *,
+button#get-details-button * {
+  pointer-events: none !important;
+}
+
+#get-details-button,
+button#get-details-button {
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: rgba(59, 130, 246, 0.5) !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Ensure no parent is blocking */
+.w-\[520px\],
+.flex.h-\[calc\(100vh-100px\)\],
+.bg-white\/95.backdrop-blur-xl {
+  position: relative !important;
+  pointer-events: auto !important;
+  z-index: 1 !important;
+}
+
+/* Ensure button container is clickable */
+.flex.gap-3 {
+  position: relative !important;
+  z-index: 100 !important;
+  pointer-events: auto !important;
+  overflow: visible !important;
 }
 
 /* Prevent zoom on input focus - iOS Safari requirement: font-size must be >= 16px */

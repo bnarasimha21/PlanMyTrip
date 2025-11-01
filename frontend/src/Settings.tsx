@@ -184,7 +184,9 @@ const Settings: React.FC = () => {
                       </ul>
                     </div>
                     <button
-                      onClick={() => updateSubscription('premium')}
+                      onClick={() => {
+                        updateSubscription('premium');
+                      }}
                       disabled={isLoading}
                       className="px-6 py-3 bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 text-white rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ml-4"
                     >
@@ -240,11 +242,12 @@ const Settings: React.FC = () => {
           {/* Note */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-800">
-              <strong>Note:</strong> Payment integration will be added later. For now, subscription changes are directly updated in the database.
+              <strong>Note:</strong> Subscription changes take effect immediately. Cancel anytime from your account settings.
             </p>
           </div>
         </div>
       </div>
+
     </div>
   );
 };

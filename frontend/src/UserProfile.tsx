@@ -34,15 +34,47 @@ const UserProfile: React.FC<UserProfileProps> = ({
   useEffect(() => {
     const fetchRole = async () => {
       if (!user) return;
-      try {
-        const resp = await fetch(`${API_BASE}/user/${user.id}`);
-        const data = await resp.json();
-        if (data.success && data.user) {
-          const adminFlag = data.user.IsAdmin === 1 || data.user.isAdmin === 1 || data.user.role === 'admin';
-          setIsAdmin(!!adminFlag);
+      
+      // Retry mechanism for mobile reliability
+      const fetchWithRetry = async (retries = 3): Promise<void> => {
+        try {
+          const resp = await fetch(`${API_BASE}/user/${user.id}`);
+          if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status}`);
+          }
+          const data = await resp.json();
+          
+          if (data.success && data.user) {
+            // Check multiple variations: 1, true, 'admin' role
+            const adminFlag = 
+              data.user.IsAdmin === 1 || 
+              data.user.IsAdmin === true || 
+              data.user.isAdmin === 1 || 
+              data.user.isAdmin === true ||
+              data.user.IsAdmin === '1' ||
+              data.user.isAdmin === '1' ||
+              data.user.role === 'admin' ||
+              data.user.role === 'Admin' ||
+              data.user.Role === 'admin' ||
+              data.user.Role === 'Admin';
+            setIsAdmin(!!adminFlag);
+            return; // Success, no retry needed
+          }
+          throw new Error('Invalid response format');
+        } catch (error) {
+          if (retries > 0) {
+            // Retry after a short delay
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return fetchWithRetry(retries - 1);
+          }
+          // All retries failed, default to false
+          setIsAdmin(false);
         }
-      } catch {}
+      };
+      
+      fetchWithRetry();
     };
+    
     fetchRole();
   }, [user]);
 
@@ -53,6 +85,15 @@ const UserProfile: React.FC<UserProfileProps> = ({
       setDropdownTop(rect.bottom + 8);
     }
   }, [isDropdownOpen, isMobile]);
+
+  // Debug log when dropdown opens
+  useEffect(() => {
+    if (isDropdownOpen) {
+      console.log('🔍 Dropdown rendering - isAdmin:', isAdmin, 'user:', user);
+      console.log('🔍 Mobile:', isMobile);
+      console.log('🔍 Dropdown open:', isDropdownOpen);
+    }
+  }, [isDropdownOpen, isAdmin, user, isMobile]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -118,17 +159,27 @@ const UserProfile: React.FC<UserProfileProps> = ({
             ...(isMobile && { top: `${dropdownTop}px` })
           }}
         >
-          <div className="p-3 space-y-2">
+          <div className="p-3 space-y-2" style={{ overflow: 'visible', minHeight: 'auto' }}>
             {isAdmin && (
               <Link
                 to="/admin"
                 onClick={() => setIsDropdownOpen(false)}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors duration-200 text-base font-medium cursor-pointer"
+                style={{ 
+                  display: 'flex', 
+                  visibility: 'visible', 
+                  opacity: 1,
+                  order: isMobile ? -1 : 0,
+                  minHeight: '44px',
+                  width: '100%',
+                  position: 'relative',
+                  zIndex: 11
+                }}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm8.485 3a8.485 8.485 0 11-16.97 0 8.485 8.485 0 0116.97 0z" />
                 </svg>
-                Dashboard
+                <span>Dashboard</span>
               </Link>
             )}
             <Link
