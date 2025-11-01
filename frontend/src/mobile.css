@@ -130,10 +130,11 @@ html {
 }
 
 /* Ensure the map section is visible with a sensible height - reduced for mobile */
-.relative > .w-full.h-full.rounded-none {
+#map-wrapper > .w-full.h-full.rounded-none {
   height: 45vh !important;
   min-height: 300px !important;
   max-height: 50vh !important;
+  position: relative !important; /* Ensure map container is positioned */
 }
 
 /* Align map horizontally with panel content on mobile */
@@ -141,6 +142,8 @@ html {
   padding-left: 1rem !important; /* match p-4 */
   padding-right: 1rem !important;
   box-sizing: border-box !important;
+  position: relative !important; /* Ensure buttons position relative to map */
+  overflow: visible !important; /* Allow buttons to show inside map */
 }
 
 /* Make map overlay controls smaller on mobile for cleaner view */
@@ -152,15 +155,32 @@ html {
 }
 
 #route-controls {
-  transform: scale(0.9) !important;
+  transform: scale(1) !important;
   transform-origin: top right !important;
   top: 0.5rem !important;
-  right: 4.5rem !important;
+  right: 5.5rem !important; /* Position at top-right */
+  position: absolute !important; /* Ensure absolute positioning */
+  z-index: 10 !important; /* Ensure buttons are above map */
+  flex-direction: row !important; /* Horizontal layout */
+  gap: 0.5rem !important; /* Smaller gap between buttons */
 }
 
 #route-controls button {
-  font-size: 0.8125rem !important; /* small */
-  padding: 0.5rem 0.75rem !important; /* tighter */
+  width: 2.25rem !important; /* 36px - just enough for icon */
+  height: 2.25rem !important; /* 36px */
+  min-width: 2.25rem !important;
+  min-height: 2.25rem !important;
+  max-width: 2.25rem !important;
+  max-height: 2.25rem !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+#route-controls button span {
+  font-size: 1.125rem !important; /* 18px icon size */
+  line-height: 1 !important;
 }
 
 /* Slightly narrower default wide buttons */
